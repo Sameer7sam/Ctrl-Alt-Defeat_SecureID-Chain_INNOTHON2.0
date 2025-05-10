@@ -19,6 +19,14 @@ const PhoneVerificationField: React.FC<PhoneVerificationFieldProps> = ({
   useEffect(() => {
     if (disabled) return;
     
+    // Remove any existing script first
+    const existingScript = document.querySelector('script[src="https://www.phone.email/sign_in_button_v1.js"]');
+    if (existingScript) {
+      existingScript.remove();
+    }
+    
+    console.log("Loading phone.email verification script...");
+    
     // Load the external script
     const script = document.createElement('script');
     script.src = "https://www.phone.email/sign_in_button_v1.js";
@@ -26,10 +34,13 @@ const PhoneVerificationField: React.FC<PhoneVerificationFieldProps> = ({
     
     // Add event listeners for success and error
     script.onload = () => {
+      console.log("Phone verification script loaded successfully");
       setIsScriptLoaded(true);
+      toast.success("Phone verification service loaded");
     };
     
     script.onerror = () => {
+      console.error("Failed to load phone verification script");
       setIsScriptError(true);
       toast.error("Failed to load verification service. Please try again later.");
     };
@@ -38,8 +49,9 @@ const PhoneVerificationField: React.FC<PhoneVerificationFieldProps> = ({
       containerRef.current.appendChild(script);
     }
 
-    // Define the listener function
+    // Define the listener function globally
     window.phoneEmailListener = function(userObj) {
+      console.log("Phone verification callback received:", userObj);
       const user_json_url = userObj.user_json_url;
       
       // Call the success handler with the user data
@@ -48,14 +60,19 @@ const PhoneVerificationField: React.FC<PhoneVerificationFieldProps> = ({
           user_json_url,
           verified: true
         });
+        
+        toast.success('Phone number verified successfully!');
       }
-      
-      toast.success('Phone number verified successfully!');
     };
 
     return () => {
       // Cleanup the listener function when the component unmounts
       window.phoneEmailListener = null as any;
+      
+      // Remove the script when unmounting
+      if (existingScript) {
+        existingScript.remove();
+      }
     };
   }, [onVerificationSuccess, disabled]);
 
@@ -64,7 +81,7 @@ const PhoneVerificationField: React.FC<PhoneVerificationFieldProps> = ({
   }
 
   return (
-    <div className="mt-6 border-t pt-6">
+    <div className="mt-6">
       <h3 className="font-medium mb-2">Phone Verification</h3>
       <p className="text-sm text-muted-foreground mb-4">
         Verify your phone number to complete the verification process

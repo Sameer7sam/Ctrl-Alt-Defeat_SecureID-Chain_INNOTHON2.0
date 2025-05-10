@@ -17,7 +17,6 @@ const AadhaarVerification = () => {
   const [fullName, setFullName] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [address, setAddress] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
   const [otp, setOtp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
@@ -34,6 +33,7 @@ const AadhaarVerification = () => {
     }
     
     setIsLoading(true);
+    console.log("Starting Aadhaar verification process");
     
     try {
       // Check if user is registered first
@@ -52,12 +52,14 @@ const AadhaarVerification = () => {
       );
       
       if (response.success) {
+        console.log("Aadhaar initial verification successful");
         setVerificationData(response.data);
         setIsVerifying(true);
         
         // Simulate OTP sent (in a real app you'd send an actual OTP)
         toast.success('OTP sent to your registered mobile number');
       } else {
+        console.error("Aadhaar verification failed:", response.message);
         toast.error(response.message);
       }
     } catch (error) {
@@ -75,20 +77,23 @@ const AadhaarVerification = () => {
     }
     
     // Simulate OTP verification (this would be done with an actual API call)
+    console.log("OTP verification successful");
     setIsVerifying(false);
     setIsVerified(true);
     toast.success('Aadhaar verification complete');
   };
   
   const handlePhoneVerificationSuccess = (data: any) => {
+    console.log("Phone verification success:", data);
     setIsPhoneVerified(true);
+    toast.success('Phone verification complete!');
   };
 
   // Compute overall verification status
   const isFullyVerified = isVerified && isPhoneVerified;
 
   return (
-    <Card className="bg-card/60 backdrop-blur-md border-primary/20 shadow-lg neo-blur overflow-hidden">
+    <Card className="bg-card/60 backdrop-blur-md border-primary/20 shadow-lg overflow-hidden">
       <CardHeader>
         <CardTitle>Aadhaar & Phone Verification</CardTitle>
         <CardDescription>
@@ -168,14 +173,14 @@ const AadhaarVerification = () => {
                     </div>
                   </div>
                   
-                  {/* Phone Verification Section */}
-                  <PhoneVerificationField 
-                    onVerificationSuccess={handlePhoneVerificationSuccess} 
-                    disabled={isPhoneVerified}
-                  />
-                  
-                  {isPhoneVerified && (
-                    <div className="bg-green-500/10 p-4 rounded-md flex items-center justify-between">
+                  {/* Phone Verification Section - Integrated with Aadhaar */}
+                  {!isPhoneVerified ? (
+                    <PhoneVerificationField 
+                      onVerificationSuccess={handlePhoneVerificationSuccess} 
+                      disabled={isPhoneVerified}
+                    />
+                  ) : (
+                    <div className="bg-green-500/10 p-4 rounded-md flex items-center justify-between mt-4">
                       <span>Phone number verification</span>
                       <span className="flex items-center text-green-500">
                         <Check className="h-4 w-4 mr-1" />
@@ -219,18 +224,6 @@ const AadhaarVerification = () => {
                         type="date"
                         value={dateOfBirth}
                         onChange={(e) => setDateOfBirth(e.target.value)}
-                        className="bg-background/50 border-primary/30 focus-visible:ring-primary"
-                        required
-                      />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="phone">Registered Mobile</Label>
-                      <Input
-                        id="phone"
-                        placeholder="10-digit number"
-                        value={phoneNumber}
-                        onChange={(e) => setPhoneNumber(e.target.value)}
                         className="bg-background/50 border-primary/30 focus-visible:ring-primary"
                         required
                       />

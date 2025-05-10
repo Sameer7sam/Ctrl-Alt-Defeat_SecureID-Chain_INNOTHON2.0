@@ -8,45 +8,62 @@ import { blockchainSystem } from '@/lib/blockchain';
 import { motion } from 'framer-motion';
 
 const PhotoVerification = () => {
+  // State management
   const [photo, setPhoto] = useState<string | null>(null);
   const [isPhotoVerifying, setIsPhotoVerifying] = useState(false);
   const [isPhotoVerified, setIsPhotoVerified] = useState(false);
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  
+  // Refs
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isStreamActive, setIsStreamActive] = useState(false);
-  const [cameraError, setCameraError] = useState<string | null>(null);
-  const [isInitializing, setIsInitializing] = useState(false);
-
-  // Ensure we stop the camera when component unmounts
+  const streamRef = useRef<MediaStream | null>(null);
+  
+  // Clean up camera resources when component unmounts
   useEffect(() => {
     return () => {
       stopCamera();
     };
   }, []);
 
+  // Function to start the camera
   const startCamera = async () => {
     try {
-      // Reset error state and set initializing state
+      // Reset error state
       setCameraError(null);
-      setIsInitializing(true);
       
-      // Request camera with specific constraints
+      console.log("Requesting camera access...");
+      
+      // Request camera with specific constraints for front-facing camera
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { 
           facingMode: 'user',
         } 
       });
       
+      console.log("Camera access granted");
+      
+      // Store stream in ref for cleanup
+      streamRef.current = stream;
+      
+      // Connect stream to video element
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        
+        // Play the video when loaded
         videoRef.current.onloadedmetadata = () => {
+          console.log("Video metadata loaded");
+          
           if (videoRef.current) {
             videoRef.current.play()
               .then(() => {
-                setIsStreamActive(true);
+                console.log("Camera started successfully");
+                setIsCameraActive(true);
               })
               .catch(err => {
-                setCameraError(`Error playing video: ${err.message}`);
+                console.error("Error playing video:", err);
+                setCameraError(`Error starting camera: ${err.message}`);
               });
           }
         };
@@ -68,30 +85,40 @@ const PhotoVerification = () => {
         setCameraError(`Could not access camera: ${error.message}`);
         toast.error('Could not access camera. Please check your permissions.');
       }
-    } finally {
-      setIsInitializing(false);
+      
+      setIsCameraActive(false);
     }
   };
 
+  // Function to stop the camera
   const stopCamera = () => {
-    if (videoRef.current && videoRef.current.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream;
-      const tracks = stream.getTracks();
+    if (streamRef.current) {
+      const tracks = streamRef.current.getTracks();
       
       tracks.forEach(track => {
+        console.log("Stopping camera track");
         track.stop();
       });
       
-      videoRef.current.srcObject = null;
-      setIsStreamActive(false);
+      streamRef.current = null;
     }
+    
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    
+    setIsCameraActive(false);
+    console.log("Camera stopped");
   };
 
+  // Function to capture a photo
   const capturePhoto = () => {
-    if (!videoRef.current || !canvasRef.current || !isStreamActive) {
+    if (!videoRef.current || !canvasRef.current || !isCameraActive) {
       toast.error('Camera not ready');
       return;
     }
+    
+    console.log("Capturing photo...");
     
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -102,12 +129,15 @@ const PhotoVerification = () => {
     
     const context = canvas.getContext('2d');
     if (context) {
+      // Draw the current video frame on the canvas
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
       
       try {
+        // Convert canvas to data URL (JPEG format)
         const photoData = canvas.toDataURL('image/jpeg');
         setPhoto(photoData);
         stopCamera();
+        console.log("Photo captured successfully");
       } catch (error) {
         console.error('Error capturing photo:', error);
         toast.error('Failed to capture photo');
@@ -115,12 +145,14 @@ const PhotoVerification = () => {
     }
   };
 
+  // Function to retake the photo
   const retakePhoto = () => {
     setPhoto(null);
     setIsPhotoVerified(false);
     startCamera();
   };
 
+  // Function to verify the photo
   const verifyPhoto = async () => {
     if (!photo) {
       toast.error('Please capture a photo first');
@@ -130,6 +162,8 @@ const PhotoVerification = () => {
     setIsPhotoVerifying(true);
     
     try {
+      console.log("Starting photo verification process");
+      
       // Check if user is registered first
       const currentUser = blockchainSystem.getCurrentUser();
       
@@ -142,9 +176,11 @@ const PhotoVerification = () => {
       const response = await blockchainSystem.savePhotoVerification(photo);
       
       if (response.success) {
+        console.log("Photo verification successful");
         toast.success('Photo verification successful');
         setIsPhotoVerified(true);
       } else {
+        console.error("Photo verification failed:", response.message);
         toast.error(response.message || 'Verification failed');
       }
     } catch (error) {
@@ -156,7 +192,7 @@ const PhotoVerification = () => {
   };
 
   return (
-    <Card className="bg-card/60 backdrop-blur-md border-primary/20 shadow-lg neo-blur overflow-hidden">
+    <Card className="bg-card/60 backdrop-blur-md border-primary/20 shadow-lg overflow-hidden">
       <CardHeader>
         <CardTitle>Photo Verification</CardTitle>
         <CardDescription>
@@ -183,16 +219,7 @@ const PhotoVerification = () => {
                   </div>
                 )}
                 
-                {isInitializing && (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="flex flex-col items-center">
-                      <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin"></div>
-                      <p className="mt-2 text-sm text-muted-foreground">Initializing camera...</p>
-                    </div>
-                  </div>
-                )}
-                
-                {isStreamActive ? (
+                {isCameraActive ? (
                   <video 
                     ref={videoRef} 
                     autoPlay 
@@ -200,7 +227,7 @@ const PhotoVerification = () => {
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  !isInitializing && !cameraError && (
+                  !cameraError && (
                     <div className="flex items-center justify-center h-full">
                       <Button 
                         onClick={startCamera}
@@ -214,7 +241,7 @@ const PhotoVerification = () => {
                 )}
               </div>
               
-              {isStreamActive && (
+              {isCameraActive && (
                 <Button 
                   onClick={capturePhoto} 
                   className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
