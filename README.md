@@ -142,3 +142,9 @@ The most innovative aspects are:
 •	Step-by-step verification process is easy to understand
 •	Clean UI with clear instructions at each step
 
+Contributers 
+
+Sameer jaiswal
+Nikhil Shrama
+Lavina Fand
+danav Chumandani
