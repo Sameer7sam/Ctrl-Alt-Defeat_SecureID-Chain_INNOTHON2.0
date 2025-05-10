@@ -2,6 +2,7 @@
 import { ethers } from "ethers";
 import { WalletConnection } from "./types";
 import { toast } from "sonner";
+import { sha256 } from "crypto-hash";
 
 declare global {
   interface Window {
@@ -10,6 +11,51 @@ declare global {
 }
 
 class WalletService {
+  // Transaction monitoring for security
+  private transactionCounter: Map<string, { count: number, lastReset: number }> = new Map();
+  private readonly MAX_TRANSACTIONS_PER_MINUTE = 3;
+  
+  // Create a secure keystore with password protection
+  public async generateSecureKeyPair(password: string): Promise<{ publicKey: string; privateKey: string; encryptedKey: string }> {
+    // Create a wallet with a random private key
+    const wallet = ethers.Wallet.createRandom();
+    
+    // Get public and private keys
+    const privateKey = wallet.privateKey;
+    const publicKey = wallet.address;
+    
+    // Encrypt the private key with the password
+    const encryptedKey = await this.encryptKey(privateKey, password);
+    
+    return {
+      publicKey,
+      privateKey, // Only shown once to the user
+      encryptedKey // This is what gets stored
+    };
+  }
+  
+  // Encrypt a private key with a password
+  private async encryptKey(privateKey: string, password: string): Promise<string> {
+    // In a production app, use a proper encryption library
+    // For now, we'll just hash the combination which isn't secure but demonstrates the concept
+    const salt = await sha256(Date.now().toString());
+    return await sha256(privateKey + password + salt);
+  }
+  
+  // Decrypt a private key with a password
+  public async decryptKey(encryptedKey: string, password: string): Promise<string | null> {
+    // This is a mock implementation since we're not actually encrypting
+    // In a real app, this would decrypt the key using the password
+    try {
+      // Simulate checking password - in real app this would decrypt the key
+      return "0x" + Array(64).fill(0).map(() => 
+        Math.floor(Math.random() * 16).toString(16)).join('');
+    } catch (error) {
+      console.error("Failed to decrypt key:", error);
+      return null;
+    }
+  }
+
   // Check if wallet is connected
   public async isWalletConnected(): Promise<boolean> {
     try {
@@ -142,6 +188,43 @@ class WalletService {
         message: error.message || "Failed to sign message"
       };
     }
+  }
+
+  // Monitor transaction frequency (anti-fraud mechanism)
+  public checkTransactionLimit(address: string): { allowed: boolean; timeToWait?: number } {
+    const now = Date.now();
+    const minute = 60 * 1000;
+    
+    // Get or initialize counter for this address
+    if (!this.transactionCounter.has(address)) {
+      this.transactionCounter.set(address, { count: 0, lastReset: now });
+    }
+    
+    const tracker = this.transactionCounter.get(address)!;
+    
+    // Reset counter if a minute has passed
+    if (now - tracker.lastReset > minute) {
+      tracker.count = 0;
+      tracker.lastReset = now;
+    }
+    
+    // Check if transaction limit exceeded
+    if (tracker.count >= this.MAX_TRANSACTIONS_PER_MINUTE) {
+      // Calculate time to wait until next transaction allowed
+      const timeToWait = (tracker.lastReset + minute) - now;
+      return { allowed: false, timeToWait };
+    }
+    
+    // Increment transaction count
+    tracker.count++;
+    return { allowed: true };
+  }
+
+  // Generate demo transaction IDs
+  public generateDemoTransactionId(): string {
+    // Format: 0xXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX (42 chars)
+    return "0x" + Array(40).fill(0).map(() => 
+      Math.floor(Math.random() * 16).toString(16)).join('');
   }
 
   // Format network name for better display

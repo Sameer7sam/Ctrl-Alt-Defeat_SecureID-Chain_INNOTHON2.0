@@ -6,10 +6,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { CircleDollarSign, Loader2, AlertTriangle, Clock, CheckCircle, CircleX } from "lucide-react";
+import { CircleDollarSign, Loader2, AlertTriangle, Clock, CheckCircle, CircleX, Shield, ShieldAlert } from "lucide-react";
 import { blockchainSystem } from "@/lib/blockchain";
 import { useTheme } from "@/components/ThemeProvider";
 import { Transaction } from "@/lib/types";
+import { walletService } from "@/lib/walletService";
+
+// Demo recipient addresses
+const DEMO_RECIPIENTS = [
+  "0x71C7656EC7ab88b098defB751B7401B5f6d8976F",
+  "0xAb8483F64d9C6d1EcF9b849Ae677dD3315835cb2",
+  "0x617F2E2fD72FD9D5503197092aC168c91465E7f2",
+  "0x78731D3Ca6b7E34aC0F824c42a7cC18A495cabaB",
+  "0x5c6B0f7Bf3E7ce046039Bd8FABdfD3f9F5021678"
+];
 
 const Transactions = () => {
   const { theme } = useTheme();
@@ -22,6 +32,7 @@ const Transactions = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [fraudLockCountdown, setFraudLockCountdown] = useState<number | null>(null);
   const [countdownInterval, setCountdownInterval] = useState<NodeJS.Timeout | null>(null);
+  const [showDemoRecipients, setShowDemoRecipients] = useState(false);
   
   // Check if user is verified
   useEffect(() => {
@@ -47,6 +58,14 @@ const Transactions = () => {
     });
   };
   
+  const selectDemoRecipient = (recipient: string) => {
+    setFormData({
+      ...formData,
+      recipient
+    });
+    setShowDemoRecipients(false);
+  };
+  
   const handleSendTransaction = async () => {
     if (!formData.recipient || !formData.amount) {
       toast.error("Please fill in all fields");
@@ -63,10 +82,27 @@ const Transactions = () => {
     setIsLoading(true);
     
     try {
+      // Get wallet connection
+      const walletConnection = walletService.getWalletConnection();
+      if (!walletConnection) {
+        toast.error("Please connect your wallet first");
+        return;
+      }
+      
+      // Check transaction frequency (anti-fraud)
+      const transactionCheck = walletService.checkTransactionLimit(walletConnection.address);
+      if (!transactionCheck.allowed) {
+        startCountdown(transactionCheck.timeToWait || 60000);
+        toast.error("Transaction frequency limit exceeded. Please wait before trying again.");
+        return;
+      }
+      
       const response = await blockchainSystem.sendTransaction(formData.recipient, amount);
       
       if (response.success) {
-        toast.success("Transaction completed successfully!");
+        // Generate a random transaction ID for demo
+        const txId = walletService.generateDemoTransactionId();
+        toast.success(`Transaction completed! ID: ${txId.substring(0, 10)}...`);
         setFormData({ recipient: "", amount: "" });
         
         // Refresh transactions list
@@ -157,12 +193,13 @@ const Transactions = () => {
           ) : fraudLockCountdown ? (
             <div className={`p-4 rounded-md ${theme === "dark" ? "bg-red-900/30" : "bg-red-50"}`}>
               <div className="flex items-start">
-                <AlertTriangle className={theme === "dark" ? "text-red-400 w-5 h-5 mr-3" : "text-red-600 w-5 h-5 mr-3"} />
+                <ShieldAlert className={theme === "dark" ? "text-red-400 w-5 h-5 mr-3" : "text-red-600 w-5 h-5 mr-3"} />
                 <div>
                   <p className={`font-medium ${theme === "dark" ? "text-red-400" : "text-red-800"}`}>
-                    Fraud Alert: Too many transactions
+                    Security Alert: Transaction Limit Exceeded
                   </p>
                   <p className={theme === "dark" ? "text-gray-300 mt-1" : "text-gray-700 mt-1"}>
+                    Our security system has detected too many transactions in a short period.
                     Please wait {fraudLockCountdown} seconds before trying again.
                   </p>
                   <div className="mt-3 w-full bg-gray-700 rounded-full h-2.5">
@@ -176,16 +213,41 @@ const Transactions = () => {
             </div>
           ) : (
             <div className="space-y-4">
-              <div>
+              <div className="relative">
                 <Label htmlFor="recipient" className={textColor}>Recipient Public Key</Label>
-                <Input
-                  id="recipient"
-                  name="recipient"
-                  value={formData.recipient}
-                  onChange={handleInputChange}
-                  placeholder="Recipient's public key"
-                  className={`mt-1 ${theme === "dark" ? "bg-gray-800 border-gray-700 text-white" : ""}`}
-                />
+                <div className="flex">
+                  <Input
+                    id="recipient"
+                    name="recipient"
+                    value={formData.recipient}
+                    onChange={handleInputChange}
+                    placeholder="Recipient's public key"
+                    className={`mt-1 ${theme === "dark" ? "bg-gray-800 border-gray-700 text-white" : ""}`}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="ml-2 whitespace-nowrap"
+                    onClick={() => setShowDemoRecipients(!showDemoRecipients)}
+                  >
+                    Demo IDs
+                  </Button>
+                </div>
+                
+                {showDemoRecipients && (
+                  <div className={`absolute z-10 mt-1 p-2 rounded-md shadow-lg w-full ${theme === "dark" ? "bg-gray-800" : "bg-white border"}`}>
+                    <p className={`text-xs mb-2 ${textMutedColor}`}>Select a demo recipient:</p>
+                    {DEMO_RECIPIENTS.map((address, i) => (
+                      <div 
+                        key={i}
+                        onClick={() => selectDemoRecipient(address)}
+                        className={`p-2 cursor-pointer rounded-md text-xs truncate ${theme === "dark" ? "hover:bg-gray-700" : "hover:bg-gray-100"}`}
+                      >
+                        {address}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
               
               <div>
@@ -213,9 +275,17 @@ const Transactions = () => {
               </Button>
               
               <div className={`p-4 rounded-md mt-4 ${theme === "dark" ? "bg-blue-900/20" : "bg-blue-50"}`}>
-                <p className={`text-sm ${theme === "dark" ? "text-blue-300" : "text-blue-800"}`}>
-                  <strong>Fraud Detection:</strong> For your security, there's a limit of 3 transactions per minute.
-                </p>
+                <div className="flex items-start">
+                  <Shield className={theme === "dark" ? "text-blue-400 w-5 h-5 mr-3 flex-shrink-0" : "text-blue-600 w-5 h-5 mr-3 flex-shrink-0"} />
+                  <div>
+                    <p className={`text-sm font-medium ${theme === "dark" ? "text-blue-300" : "text-blue-800"}`}>
+                      Security Notice
+                    </p>
+                    <p className={`text-xs ${theme === "dark" ? "text-blue-200/70" : "text-blue-700/70"}`}>
+                      For your protection, our fraud detection limits you to 3 transactions per minute. Exceeding this limit will temporarily lock transactions.
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -256,11 +326,12 @@ const Transactions = () => {
                     const isSender = tx.sender !== "system";
                     const isRecipient = tx.recipient !== "system";
                     const type = isSender && isRecipient ? "Transfer" : (isSender ? "System" : "Received");
+                    const txId = tx.txHash || tx.signature || walletService.generateDemoTransactionId();
                     
                     return (
                       <TableRow key={tx.signature} className={theme === "dark" ? "border-gray-800" : ""}>
                         <TableCell className={`font-mono ${textColor}`}>
-                          {tx.txHash ? tx.txHash.substring(0, 8) + "..." : tx.signature.substring(0, 8) + "..."}
+                          {txId.substring(0, 8) + "..."}
                         </TableCell>
                         <TableCell className={textColor}>{type}</TableCell>
                         <TableCell className={textColor}>

@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { Camera, RefreshCw, Check, CameraOff, AlertCircle } from 'lucide-react';
+import { Camera, RefreshCw, Check, CameraOff, AlertCircle, Shield, Key } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { blockchainSystem } from '@/lib/blockchain';
 import { motion } from 'framer-motion';
@@ -20,18 +20,21 @@ const PhotoVerification = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   
-  // Clean up camera resources when component unmounts
+  // Clean up camera resources when component unmounts or when navigating away
   useEffect(() => {
     return () => {
-      stopCamera();
+      if (streamRef.current) {
+        stopCamera();
+      }
     };
   }, []);
-
-  // Function to start the camera
+  
+  // Function to start the camera with proper cleanup
   const startCamera = async () => {
     try {
-      // Reset error state
+      // Reset error state and ensure camera is stopped first
       setCameraError(null);
+      stopCamera();
       
       console.log("Requesting camera access...");
       
@@ -41,7 +44,8 @@ const PhotoVerification = () => {
           facingMode: 'user',
           width: { ideal: 1280 },
           height: { ideal: 720 }
-        } 
+        },
+        audio: false
       });
       
       console.log("Camera access granted");
@@ -55,17 +59,15 @@ const PhotoVerification = () => {
         
         // Play the video when loaded
         videoRef.current.onloadedmetadata = () => {
-          console.log("Video metadata loaded");
-          
           if (videoRef.current) {
             videoRef.current.play()
               .then(() => {
-                console.log("Camera started successfully");
                 setIsCameraActive(true);
               })
               .catch(err => {
                 console.error("Error playing video:", err);
                 setCameraError(`Error starting camera: ${err.message}`);
+                stopCamera();
               });
           }
         };
@@ -88,17 +90,19 @@ const PhotoVerification = () => {
         toast.error('Could not access camera. Please check your permissions.');
       }
       
+      stopCamera();
       setIsCameraActive(false);
     }
   };
 
-  // Function to stop the camera
+  // Improved function to stop the camera
   const stopCamera = () => {
+    console.log("Stopping camera track");
+    
     if (streamRef.current) {
       const tracks = streamRef.current.getTracks();
       
       tracks.forEach(track => {
-        console.log("Stopping camera track");
         track.stop();
       });
       
@@ -226,6 +230,7 @@ const PhotoVerification = () => {
                     ref={videoRef} 
                     autoPlay 
                     playsInline 
+                    muted
                     className="w-full h-full object-cover"
                   />
                 ) : (
