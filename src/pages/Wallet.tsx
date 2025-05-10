@@ -3,55 +3,86 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Wallet as WalletIcon, Globe, Loader2, ChevronDown, Shield } from "lucide-react";
+import { Wallet as WalletIcon, Globe, Loader2, ChevronDown, Shield, LogOut } from "lucide-react";
 import { blockchainSystem } from "@/lib/blockchain";
 import { useTheme } from "@/components/ThemeProvider";
 import { WalletConnection } from "@/lib/types";
+import { walletService } from "@/lib/walletService";
 
 const Wallet = () => {
   const { theme } = useTheme();
   const [isConnecting, setIsConnecting] = useState(false);
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [walletConnection, setWalletConnection] = useState<WalletConnection | undefined>(undefined);
   const [isVerified, setIsVerified] = useState(false);
   
   // Check if wallet is already connected
   useEffect(() => {
-    const connection = blockchainSystem.getWalletConnection();
-    if (connection) {
-      setWalletConnection(connection);
-    }
+    const checkWalletConnection = async () => {
+      // Check for existing connection
+      const connection = walletService.getWalletConnection();
+      if (connection) {
+        setWalletConnection(connection);
+        
+        // Verify connection is still valid with MetaMask
+        const isConnected = await walletService.isWalletConnected();
+        if (!isConnected) {
+          setWalletConnection(undefined);
+          localStorage.removeItem('walletConnection');
+        }
+      }
+      
+      // Check if user is verified
+      const verification = blockchainSystem.getVerification();
+      setIsVerified(!!verification && verification.verified);
+    };
     
-    // Check if user is verified
-    const verification = blockchainSystem.getVerification();
-    setIsVerified(!!verification && verification.verified);
+    checkWalletConnection();
   }, []);
   
   const handleConnectWallet = async () => {
     setIsConnecting(true);
     
     try {
-      // Simulate connecting to MetaMask
-      setTimeout(async () => {
-        try {
-          const response = await blockchainSystem.connectWallet();
-          
-          if (response.success) {
-            setWalletConnection(response.data as WalletConnection);
-            toast.success("Wallet connected successfully!");
-          } else {
-            toast.error(response.message || "Failed to connect wallet");
-          }
-        } catch (error) {
-          console.error("Error connecting wallet:", error);
-          toast.error("An error occurred while connecting the wallet");
-        } finally {
-          setIsConnecting(false);
+      const response = await walletService.connectWallet();
+      
+      if (response.success && response.data) {
+        setWalletConnection(response.data);
+        toast.success("Wallet connected successfully!");
+        
+        // Register with blockchain system if needed
+        const currentUser = blockchainSystem.getCurrentUser();
+        if (!currentUser) {
+          await blockchainSystem.registerIdentity("auto-id", "auto-selfie");
         }
-      }, 1500); // Simulate connection delay
+      } else {
+        toast.error(response.message || "Failed to connect wallet");
+      }
     } catch (error) {
-      console.error("Error initiating wallet connection:", error);
-      toast.error("Could not initiate wallet connection");
+      console.error("Error connecting wallet:", error);
+      toast.error("An error occurred while connecting the wallet");
+    } finally {
       setIsConnecting(false);
+    }
+  };
+  
+  const handleDisconnectWallet = async () => {
+    setIsDisconnecting(true);
+    
+    try {
+      const response = await walletService.disconnectWallet();
+      
+      if (response.success) {
+        setWalletConnection(undefined);
+        toast.success("Wallet disconnected successfully!");
+      } else {
+        toast.error(response.message || "Failed to disconnect wallet");
+      }
+    } catch (error) {
+      console.error("Error disconnecting wallet:", error);
+      toast.error("An error occurred while disconnecting the wallet");
+    } finally {
+      setIsDisconnecting(false);
     }
   };
   
@@ -129,8 +160,19 @@ const Wallet = () => {
               </div>
               
               <div className="mt-6 grid grid-cols-2 gap-4">
-                <Button variant="outline" className="w-full">
-                  Disconnect
+                <Button 
+                  variant="outline" 
+                  className="w-full flex items-center justify-center"
+                  onClick={handleDisconnectWallet}
+                  disabled={isDisconnecting}
+                >
+                  {isDisconnecting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  {isDisconnecting ? "Disconnecting..." : (
+                    <>
+                      <LogOut className="w-4 h-4 mr-2" />
+                      Disconnect
+                    </>
+                  )}
                 </Button>
                 <Button className={`w-full ${theme === "dark" ? "bg-purple-700 hover:bg-purple-800" : ""}`}>
                   Explore Assets
