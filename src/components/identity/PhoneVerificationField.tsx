@@ -55,7 +55,7 @@ const PhoneVerificationField: React.FC<PhoneVerificationFieldProps> = ({
 
     return () => {
       // Cleanup the listener function when the component unmounts
-      window.phoneEmailListener = null;
+      window.phoneEmailListener = null as any;
     };
   }, [onVerificationSuccess, disabled]);
 
