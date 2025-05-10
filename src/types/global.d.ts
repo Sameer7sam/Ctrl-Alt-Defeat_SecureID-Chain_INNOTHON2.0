@@ -1,4 +1,3 @@
-
 interface Window {
-  phoneEmailListener: (userObj: any) => void;
+  phoneEmailListener?: (userObj: { user_json_url: string }) => void;
 }

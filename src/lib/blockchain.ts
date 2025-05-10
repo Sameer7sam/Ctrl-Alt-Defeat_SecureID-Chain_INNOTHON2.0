@@ -1,4 +1,3 @@
-
 import { Wallet, Transaction, Block, TransactionResponse, NFT, IdentityVerification, WalletConnection } from './types';
 import { generateKeyPair, generateIdentityToken, signTransaction, verifySignature } from './cryptography';
 import { sha256 } from 'crypto-hash';
@@ -476,11 +475,9 @@ class BlockchainSystem {
   }
 
   public getWalletConnection(publicKey?: string): WalletConnection | undefined {
-    const pk = publicKey || this.currentUser?.publicKey;
-    if (!pk) return undefined;
-    return this.walletConnections.get(pk);
+    const key = publicKey || this.currentUser?.publicKey;
+    return key ? this.walletConnections.get(key) : undefined;
   }
 }
 
-// Export singleton instance
 export const blockchainSystem = new BlockchainSystem();
