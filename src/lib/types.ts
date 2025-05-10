@@ -38,6 +38,9 @@ export interface NFT {
   createdAt: number;
   expiresAt: number;
   imageUrl: string;
+  status?: 'Active' | 'Expired';
+  category?: string;
+  traits?: Record<string, string>;
 }
 
 export interface IdentityVerification {
@@ -48,6 +51,7 @@ export interface IdentityVerification {
   verified: boolean;
   verifiedAt?: number;
   photoUrl?: string;
+  phoneNumber?: string;
 }
 
 export interface WalletConnection {

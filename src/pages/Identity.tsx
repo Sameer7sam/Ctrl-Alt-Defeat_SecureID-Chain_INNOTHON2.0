@@ -6,10 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Camera, Check, Loader2 } from "lucide-react";
+import { Camera, Check, Loader2, Smartphone } from "lucide-react";
 import { blockchainSystem } from "@/lib/blockchain";
 import { useTheme } from "@/components/ThemeProvider";
 import { IdentityVerification } from "@/lib/types";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
 const Identity = () => {
   const { theme } = useTheme();
@@ -23,6 +24,7 @@ const Identity = () => {
   
   const [aadhaarData, setAadhaarData] = useState({
     aadhaarNumber: "",
+    phoneNumber: "",
     fullName: "",
     dateOfBirth: "",
     address: ""
@@ -30,6 +32,12 @@ const Identity = () => {
   const [verifyingAadhaar, setVerifyingAadhaar] = useState(false);
   const [aadhaarVerified, setAadhaarVerified] = useState(false);
   const [verifiedIdentity, setVerifiedIdentity] = useState<IdentityVerification | undefined>(undefined);
+  
+  // OTP related states
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [otpVerifying, setOtpVerifying] = useState(false);
+  const [generatedOtp, setGeneratedOtp] = useState("");
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -51,6 +59,7 @@ const Identity = () => {
         setAadhaarTab("verified");
         setAadhaarData({
           aadhaarNumber: verification.aadhaarNumber,
+          phoneNumber: verification.phoneNumber || "",
           fullName: verification.fullName,
           dateOfBirth: verification.dateOfBirth,
           address: verification.address
@@ -155,6 +164,45 @@ const Identity = () => {
     
     return parts.join('-').substring(0, 14); // Format as XXXX-XXXX-XXXX
   };
+
+  const sendOTP = () => {
+    // Validate Aadhaar number and phone number
+    const aadhaarNumberClean = aadhaarData.aadhaarNumber.replace(/[-\s]/g, '');
+    if (!/^\d{12}$/.test(aadhaarNumberClean)) {
+      toast.error("Invalid Aadhaar number. Must be 12 digits.");
+      return;
+    }
+
+    if (!/^\d{10}$/.test(aadhaarData.phoneNumber)) {
+      toast.error("Invalid phone number. Must be 10 digits.");
+      return;
+    }
+
+    // Generate a random 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    setGeneratedOtp(otp);
+    setOtpSent(true);
+    
+    // Show toast notification
+    toast.success(`OTP sent to phone number ending with ${aadhaarData.phoneNumber.slice(-4)}`, {
+      description: `For demo purposes, the OTP is: ${otp}`
+    });
+  };
+  
+  const verifyOTP = () => {
+    setOtpVerifying(true);
+    
+    // Simulate verification delay
+    setTimeout(() => {
+      if (otpCode === generatedOtp) {
+        // Proceed with Aadhaar verification after OTP is verified
+        verifyAadhaar();
+      } else {
+        toast.error("Invalid OTP. Please try again.");
+        setOtpVerifying(false);
+      }
+    }, 1500);
+  };
   
   const verifyAadhaar = async () => {
     setVerifyingAadhaar(true);
@@ -178,11 +226,13 @@ const Identity = () => {
           toast.error(response.message || "Aadhaar verification failed");
         }
         setVerifyingAadhaar(false);
+        setOtpVerifying(false);
       }, 2000);
     } catch (error) {
       console.error("Error verifying Aadhaar:", error);
       toast.error("An error occurred during Aadhaar verification");
       setVerifyingAadhaar(false);
+      setOtpVerifying(false);
     }
   };
   
@@ -332,65 +382,127 @@ const Identity = () => {
             
             <TabsContent value="form">
               <div className="space-y-4">
-                <div className="grid gap-4">
-                  <div>
-                    <Label htmlFor="aadhaarNumber" className={textColor}>Aadhaar Number</Label>
-                    <Input
-                      id="aadhaarNumber"
-                      name="aadhaarNumber"
-                      value={formatAadhaarNumber(aadhaarData.aadhaarNumber)}
-                      onChange={handleAadhaarChange}
-                      placeholder="XXXX-XXXX-XXXX"
-                      className={`mt-1 ${theme === "dark" ? "bg-gray-800 border-gray-700 text-white" : ""}`}
-                      maxLength={14}
-                    />
+                {!otpSent ? (
+                  <div className="grid gap-4">
+                    <div>
+                      <Label htmlFor="aadhaarNumber" className={textColor}>Aadhaar Number</Label>
+                      <Input
+                        id="aadhaarNumber"
+                        name="aadhaarNumber"
+                        value={formatAadhaarNumber(aadhaarData.aadhaarNumber)}
+                        onChange={handleAadhaarChange}
+                        placeholder="XXXX-XXXX-XXXX"
+                        className={`mt-1 ${theme === "dark" ? "bg-gray-800 border-gray-700 text-white" : ""}`}
+                        maxLength={14}
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="phoneNumber" className={textColor}>Registered Mobile Number</Label>
+                      <Input
+                        id="phoneNumber"
+                        name="phoneNumber"
+                        value={aadhaarData.phoneNumber}
+                        onChange={handleAadhaarChange}
+                        placeholder="10-digit mobile number"
+                        className={`mt-1 ${theme === "dark" ? "bg-gray-800 border-gray-700 text-white" : ""}`}
+                        maxLength={10}
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="fullName" className={textColor}>Full Name (as per Aadhaar)</Label>
+                      <Input
+                        id="fullName"
+                        name="fullName"
+                        value={aadhaarData.fullName}
+                        onChange={handleAadhaarChange}
+                        placeholder="John Doe"
+                        className={`mt-1 ${theme === "dark" ? "bg-gray-800 border-gray-700 text-white" : ""}`}
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="dateOfBirth" className={textColor}>Date of Birth</Label>
+                      <Input
+                        id="dateOfBirth"
+                        name="dateOfBirth"
+                        type="date"
+                        value={aadhaarData.dateOfBirth}
+                        onChange={handleAadhaarChange}
+                        className={`mt-1 ${theme === "dark" ? "bg-gray-800 border-gray-700 text-white" : ""}`}
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="address" className={textColor}>Address</Label>
+                      <Input
+                        id="address"
+                        name="address"
+                        value={aadhaarData.address}
+                        onChange={handleAadhaarChange}
+                        placeholder="123 Main St, City, State, Pincode"
+                        className={`mt-1 ${theme === "dark" ? "bg-gray-800 border-gray-700 text-white" : ""}`}
+                      />
+                    </div>
                   </div>
-                  
-                  <div>
-                    <Label htmlFor="fullName" className={textColor}>Full Name (as per Aadhaar)</Label>
-                    <Input
-                      id="fullName"
-                      name="fullName"
-                      value={aadhaarData.fullName}
-                      onChange={handleAadhaarChange}
-                      placeholder="John Doe"
-                      className={`mt-1 ${theme === "dark" ? "bg-gray-800 border-gray-700 text-white" : ""}`}
-                    />
+                ) : (
+                  <div className="space-y-6">
+                    <div className={`p-4 rounded-md ${theme === "dark" ? "bg-blue-900/30" : "bg-blue-50"}`}>
+                      <div className="flex">
+                        <div className={`rounded-full p-1 ${theme === "dark" ? "bg-blue-500" : "bg-blue-100"}`}>
+                          <Smartphone className={`w-5 h-5 ${theme === "dark" ? "text-blue-900" : "text-blue-500"}`} />
+                        </div>
+                        <div className="ml-3">
+                          <h3 className={`text-sm font-medium ${theme === "dark" ? "text-blue-300" : "text-blue-800"}`}>
+                            OTP Sent
+                          </h3>
+                          <div className={`mt-2 text-sm ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}>
+                            <p>Please enter the OTP sent to your registered mobile number ending with {aadhaarData.phoneNumber.slice(-4)}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="otp" className={textColor}>Enter OTP</Label>
+                      <div className="flex justify-center">
+                        <InputOTP maxLength={6} value={otpCode} onChange={setOtpCode}>
+                          <InputOTPGroup>
+                            <InputOTPSlot index={0} />
+                            <InputOTPSlot index={1} />
+                            <InputOTPSlot index={2} />
+                            <InputOTPSlot index={3} />
+                            <InputOTPSlot index={4} />
+                            <InputOTPSlot index={5} />
+                          </InputOTPGroup>
+                        </InputOTP>
+                      </div>
+                    </div>
                   </div>
-                  
-                  <div>
-                    <Label htmlFor="dateOfBirth" className={textColor}>Date of Birth</Label>
-                    <Input
-                      id="dateOfBirth"
-                      name="dateOfBirth"
-                      type="date"
-                      value={aadhaarData.dateOfBirth}
-                      onChange={handleAadhaarChange}
-                      className={`mt-1 ${theme === "dark" ? "bg-gray-800 border-gray-700 text-white" : ""}`}
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="address" className={textColor}>Address</Label>
-                    <Input
-                      id="address"
-                      name="address"
-                      value={aadhaarData.address}
-                      onChange={handleAadhaarChange}
-                      placeholder="123 Main St, City, State, Pincode"
-                      className={`mt-1 ${theme === "dark" ? "bg-gray-800 border-gray-700 text-white" : ""}`}
-                    />
-                  </div>
-                </div>
+                )}
                 
                 <Button 
-                  onClick={verifyAadhaar} 
+                  onClick={otpSent ? verifyOTP : sendOTP} 
                   className={`w-full ${theme === "dark" ? "bg-purple-700 hover:bg-purple-800" : ""}`}
-                  disabled={verifyingAadhaar}
+                  disabled={otpSent ? otpVerifying || otpCode.length !== 6 : verifyingAadhaar}
                 >
-                  {verifyingAadhaar && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  Verify Aadhaar
+                  {(otpVerifying || verifyingAadhaar) && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  {otpSent ? "Verify OTP" : "Send OTP"}
                 </Button>
+
+                {otpSent && (
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      setOtpSent(false);
+                      setOtpCode("");
+                    }}
+                    className="w-full mt-2"
+                  >
+                    Change Mobile Number
+                  </Button>
+                )}
               </div>
             </TabsContent>
             
