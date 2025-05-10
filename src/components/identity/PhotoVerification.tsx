@@ -1,10 +1,10 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { Camera, RefreshCw, Check, CameraOff, AlertCircle, Shield, Key } from 'lucide-react';
+import { Camera, RefreshCw, Check, CameraOff, AlertCircle, Shield, Key, Upload } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { blockchainSystem } from '@/lib/blockchain';
+import { backendService } from '@/lib/backend';
 import { motion } from 'framer-motion';
 
 const PhotoVerification = () => {
@@ -14,12 +14,37 @@ const PhotoVerification = () => {
   const [isPhotoVerified, setIsPhotoVerified] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [isDevelopmentMode, setIsDevelopmentMode] = useState(true);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verificationStep, setVerificationStep] = useState<'idle' | 'verifying' | 'verified'>('idle');
+  const [storedPhoto, setStoredPhoto] = useState<string | null>(null);
   
   // Refs
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Check for existing verification on mount
+  useEffect(() => {
+    const checkExistingVerification = async () => {
+      const currentUser = blockchainSystem.getCurrentUser();
+      if (currentUser) {
+        const isVerified = await backendService.getPhotoVerificationStatus(currentUser.publicKey);
+        if (isVerified) {
+          setIsPhotoVerified(true);
+          setVerificationStep('verified');
+          // Get stored photo
+          const userData = await backendService.getUserData(currentUser.publicKey);
+          if (userData?.photoVerification?.photo) {
+            setStoredPhoto(userData.photoVerification.photo);
+          }
+        }
+      }
+    };
+    checkExistingVerification();
+  }, []);
+
   // Clean up camera resources when component unmounts or when navigating away
   useEffect(() => {
     return () => {
@@ -28,9 +53,36 @@ const PhotoVerification = () => {
       }
     };
   }, []);
+
+  // Function to handle file upload in development mode
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        toast.error('File size too large. Please select an image under 5MB.');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        setPhoto(result);
+        toast.success('Photo uploaded successfully');
+      };
+      reader.onerror = () => {
+        toast.error('Failed to read the file');
+      };
+      reader.readAsDataURL(file);
+    }
+  };
   
   // Function to start the camera with proper cleanup
   const startCamera = async () => {
+    if (isDevelopmentMode) {
+      fileInputRef.current?.click();
+      return;
+    }
+
     try {
       // Reset error state and ensure camera is stopped first
       setCameraError(null);
@@ -151,46 +203,44 @@ const PhotoVerification = () => {
     }
   };
 
-  // Function to retake the photo
-  const retakePhoto = () => {
-    setPhoto(null);
-    setIsPhotoVerified(false);
-    startCamera();
-  };
-
   // Function to verify the photo
   const verifyPhoto = async () => {
     if (!photo) {
-      toast.error('Please capture a photo first');
+      toast.error('Please upload a photo first');
       return;
     }
     
     setIsPhotoVerifying(true);
+    setVerificationStep('verifying');
     
     try {
-      console.log("Starting photo verification process");
-      
-      // Check if user is registered first
       const currentUser = blockchainSystem.getCurrentUser();
       
       if (!currentUser) {
-        // Register identity automatically if not registered
-        await blockchainSystem.registerIdentity("auto-id", "auto-selfie");
+        const registerResponse = await blockchainSystem.registerIdentity("auto-id", "auto-selfie");
+        if (!registerResponse.success) {
+          toast.error('Failed to register identity');
+          setVerificationStep('idle');
+          return;
+        }
         toast.success('Identity registered automatically');
       }
+
+      // Save photo to backend
+      const saved = await backendService.savePhotoVerification(currentUser!.publicKey, photo);
       
-      const response = await blockchainSystem.savePhotoVerification(photo);
-      
-      if (response.success) {
-        console.log("Photo verification successful");
+      if (saved) {
+        setVerificationStep('verified');
         toast.success('Photo verification successful');
         setIsPhotoVerified(true);
+        setStoredPhoto(photo);
       } else {
-        console.error("Photo verification failed:", response.message);
-        toast.error(response.message || 'Verification failed');
+        setVerificationStep('idle');
+        toast.error('Failed to save photo verification');
       }
     } catch (error) {
       console.error('Error verifying photo:', error);
+      setVerificationStep('idle');
       toast.error('Failed to verify photo');
     } finally {
       setIsPhotoVerifying(false);
@@ -202,12 +252,35 @@ const PhotoVerification = () => {
       <CardHeader>
         <CardTitle>Photo Verification</CardTitle>
         <CardDescription>
-          Take a selfie to verify your identity
+          {isPhotoVerified 
+            ? "Your photo has been verified"
+            : isDevelopmentMode 
+              ? "Upload a photo to verify your identity (Development Mode)"
+              : "Take a selfie to verify your identity"}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="flex flex-col items-center space-y-4">
-          {!photo ? (
+          {isPhotoVerified && storedPhoto ? (
+            <motion.div 
+              className="w-full max-w-md h-64 bg-black/50 rounded-lg overflow-hidden relative"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3 }}
+            >
+              <img 
+                src={storedPhoto} 
+                alt="Verified photo" 
+                className="w-full h-full object-cover blur-sm"
+              />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="bg-green-500/80 text-white px-4 py-2 rounded-md flex items-center">
+                  <Check className="h-5 w-5 mr-2" />
+                  Photo Verified
+                </div>
+              </div>
+            </motion.div>
+          ) : !photo ? (
             <>
               <div className="w-full max-w-md h-64 bg-black/50 rounded-lg overflow-hidden relative">
                 {cameraError && (
@@ -240,22 +313,21 @@ const PhotoVerification = () => {
                         onClick={startCamera}
                         className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
                       >
-                        <Camera className="mr-2 h-4 w-4" />
-                        Start Camera
+                        <Upload className="mr-2 h-4 w-4" />
+                        Upload Photo
                       </Button>
                     </div>
                   )
                 )}
               </div>
-              
-              {isCameraActive && (
-                <Button 
-                  onClick={capturePhoto} 
-                  className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
-                >
-                  Capture Photo
-                </Button>
-              )}
+
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileUpload}
+                accept="image/*"
+                className="hidden"
+              />
             </>
           ) : (
             <>
@@ -271,7 +343,14 @@ const PhotoVerification = () => {
                   className="w-full h-full object-cover"
                 />
                 
-                {isPhotoVerified && (
+                {verificationStep === 'verifying' && (
+                  <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mb-4"></div>
+                    <p className="text-white font-medium">Verifying...</p>
+                  </div>
+                )}
+                
+                {verificationStep === 'verified' && (
                   <div className="absolute top-2 right-2">
                     <div className="bg-green-500/80 text-white px-2 py-1 rounded-md text-sm flex items-center">
                       <Check className="h-4 w-4 mr-1" />
@@ -285,7 +364,11 @@ const PhotoVerification = () => {
                 {!isPhotoVerified && (
                   <>
                     <Button 
-                      onClick={retakePhoto}
+                      onClick={() => {
+                        setPhoto(null);
+                        setIsPhotoVerified(false);
+                        setVerificationStep('idle');
+                      }}
                       variant="outline"
                       className="border-white/20 hover:bg-white/10"
                     >

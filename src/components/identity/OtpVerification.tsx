@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { toast } from 'sonner';
 import { Check } from 'lucide-react';
 import { blockchainSystem } from '@/lib/blockchain';
-import PhoneEmailSignIn from './PhoneEmailSignIn';
+import SmsVerification from './SmsVerification';
 
 interface OtpVerificationProps {
   onVerificationComplete?: () => void;
@@ -12,26 +12,18 @@ interface OtpVerificationProps {
 const OtpVerification = ({ onVerificationComplete }: OtpVerificationProps) => {
   const [isVerified, setIsVerified] = useState(false);
   const [userData, setUserData] = useState<{
-    countryCode: string;
     phoneNumber: string;
-    firstName: string;
-    lastName: string;
   } | null>(null);
 
-  const handleVerificationComplete = async (data: {
-    countryCode: string;
-    phoneNumber: string;
-    firstName: string;
-    lastName: string;
-  }) => {
-    setUserData(data);
+  const handleVerificationComplete = async (phoneNumber: string) => {
+    setUserData({ phoneNumber });
     setIsVerified(true);
     toast.success('Phone number verified successfully!');
     
     // Update verification in blockchain system
     const verification = blockchainSystem.getVerification();
     if (verification) {
-      verification.phoneNumber = `${data.countryCode}${data.phoneNumber}`;
+      verification.phoneNumber = phoneNumber;
       verification.verified = true;
     }
     
@@ -45,12 +37,12 @@ const OtpVerification = ({ onVerificationComplete }: OtpVerificationProps) => {
       <CardHeader>
         <CardTitle>Phone Verification</CardTitle>
         <CardDescription>
-          Verify your phone number using Phone.Email
+          Verify your phone number using SMS
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {!isVerified ? (
-          <PhoneEmailSignIn onVerificationComplete={handleVerificationComplete} />
+          <SmsVerification onVerificationComplete={handleVerificationComplete} />
         ) : (
           <div className="space-y-2">
             <div className="flex items-center space-x-2 text-green-500">
@@ -59,8 +51,7 @@ const OtpVerification = ({ onVerificationComplete }: OtpVerificationProps) => {
             </div>
             {userData && (
               <div className="text-sm text-muted-foreground">
-                <p>Name: {userData.firstName} {userData.lastName}</p>
-                <p>Phone: +{userData.countryCode} {userData.phoneNumber}</p>
+                <p>Phone: {userData.phoneNumber}</p>
               </div>
             )}
           </div>

@@ -1,4 +1,3 @@
-
 export interface Wallet {
   publicKey: string;
   privateKey: string;
@@ -47,7 +46,7 @@ export interface IdentityVerification {
   aadhaarNumber: string;
   fullName: string;
   dateOfBirth: string;
-  address: string;
+  gender: string;
   verified: boolean;
   verifiedAt?: number;
   photoUrl?: string;

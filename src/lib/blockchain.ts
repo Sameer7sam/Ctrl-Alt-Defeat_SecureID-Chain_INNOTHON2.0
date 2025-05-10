@@ -115,7 +115,7 @@ class BlockchainSystem {
     };
   }
 
-  public async verifyAadhaar(aadhaarNumber: string, fullName: string, dateOfBirth: string, address: string): Promise<TransactionResponse> {
+  public async verifyAadhaar(aadhaarNumber: string, fullName: string, dateOfBirth: string, gender: string): Promise<TransactionResponse> {
     if (!this.currentUser) {
       return {
         success: false,
@@ -133,7 +133,7 @@ class BlockchainSystem {
     }
 
     // Basic validation
-    if (!fullName.trim() || !dateOfBirth.trim() || !address.trim()) {
+    if (!fullName.trim() || !dateOfBirth.trim() || !gender.trim()) {
       return {
         success: false,
         message: "All fields are required."
@@ -145,7 +145,7 @@ class BlockchainSystem {
       aadhaarNumber: aadhaarNumberClean,
       fullName,
       dateOfBirth,
-      address,
+      gender,
       verified: true,
       verifiedAt: Date.now()
     };

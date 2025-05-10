@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -122,6 +121,10 @@ const Wallet = () => {
   const navigateToIdentityKeys = () => {
     navigate('/identity');
   };
+
+  const navigateToPasswordRecovery = () => {
+    navigate('/wallet/recover');
+  };
   
   const formatAddress = (address: string): string => {
     return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
@@ -133,17 +136,37 @@ const Wallet = () => {
   
   const cardBg = theme === "dark" ? "bg-gray-900 border-gray-800" : "";
   const textColor = theme === "dark" ? "text-white" : "";
-  const textMutedColor = theme === "dark" ? "text-gray-400" : "text-gray-500";
+  const textMutedColor = theme === "dark" ? "text-gray-400" : "text-gray-600";
   
   return (
     <div className="space-y-8">
-      <div className="text-center space-y-3">
-        <h1 className={`text-3xl font-bold ${theme === "dark" ? "text-[#ED64A6]" : "text-blue-700"}`}>
-          Web3 Wallet
-        </h1>
-        <p className={textMutedColor}>
-          Connect your wallet to the blockchain
-        </p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className={`text-3xl font-bold ${theme === "dark" ? "text-[#ED64A6]" : "text-blue-700"}`}>
+            Web3 Wallet
+          </h1>
+          <p className={textMutedColor}>
+            Connect your wallet to the blockchain
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={navigateToIdentityKeys}
+            className="flex items-center gap-2"
+          >
+            <User className="w-4 h-4" />
+            Identity Keys
+          </Button>
+          <Button
+            variant="outline"
+            onClick={navigateToPasswordRecovery}
+            className="flex items-center gap-2"
+          >
+            <Shield className="w-4 h-4" />
+            Recover Password
+          </Button>
+        </div>
       </div>
       
       {/* Wallet Connection */}

@@ -30,6 +30,10 @@ const SmsVerification: React.FC<SmsVerificationProps> = ({ onVerificationComplet
         body: JSON.stringify({ phoneNumber }),
       });
 
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const result = await response.json();
       
       if (result.success) {
@@ -39,7 +43,8 @@ const SmsVerification: React.FC<SmsVerificationProps> = ({ onVerificationComplet
         toast.error(result.message || 'Failed to send OTP');
       }
     } catch (error) {
-      toast.error('Failed to send OTP');
+      console.error('Error sending OTP:', error);
+      toast.error('Failed to send OTP. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -61,6 +66,10 @@ const SmsVerification: React.FC<SmsVerificationProps> = ({ onVerificationComplet
         body: JSON.stringify({ phoneNumber, code: otp }),
       });
 
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const result = await response.json();
       
       if (result.success) {
@@ -72,7 +81,8 @@ const SmsVerification: React.FC<SmsVerificationProps> = ({ onVerificationComplet
         toast.error(result.message || 'Invalid verification code');
       }
     } catch (error) {
-      toast.error('Failed to verify OTP');
+      console.error('Error verifying OTP:', error);
+      toast.error('Failed to verify OTP. Please try again.');
     } finally {
       setIsLoading(false);
     }
