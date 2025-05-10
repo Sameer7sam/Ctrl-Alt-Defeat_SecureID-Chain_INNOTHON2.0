@@ -31,8 +31,8 @@ const NFTMinting = () => {
       // Process NFTs to add status based on expiration
       const processedNfts = userNfts.map(nft => {
         const now = Date.now();
-        // Ensure status is one of the allowed types: "Active" | "Expired"
-        const status = now < nft.expiresAt ? "Active" : "Expired";
+        // Explicitly type the status as "Active" | "Expired"
+        const status = now < nft.expiresAt ? "Active" as const : "Expired" as const;
         return {
           ...nft,
           status
