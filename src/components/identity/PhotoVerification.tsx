@@ -29,31 +29,23 @@ const PhotoVerification = () => {
       // Reset error state and set initializing state
       setCameraError(null);
       setIsInitializing(true);
-      console.log("Requesting camera permissions...");
       
       // Request camera with specific constraints
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { 
           facingMode: 'user',
-          width: { ideal: 1280 },
-          height: { ideal: 720 } 
         } 
       });
-      
-      console.log("Camera permission granted, stream obtained:", stream);
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         videoRef.current.onloadedmetadata = () => {
           if (videoRef.current) {
-            console.log("Video metadata loaded, playing...");
             videoRef.current.play()
               .then(() => {
-                console.log("Video playing successfully");
                 setIsStreamActive(true);
               })
               .catch(err => {
-                console.error("Error playing video:", err);
                 setCameraError(`Error playing video: ${err.message}`);
               });
           }
@@ -83,12 +75,10 @@ const PhotoVerification = () => {
 
   const stopCamera = () => {
     if (videoRef.current && videoRef.current.srcObject) {
-      console.log("Stopping camera stream");
       const stream = videoRef.current.srcObject as MediaStream;
       const tracks = stream.getTracks();
       
       tracks.forEach(track => {
-        console.log("Stopping track:", track);
         track.stop();
       });
       
@@ -112,12 +102,10 @@ const PhotoVerification = () => {
     
     const context = canvas.getContext('2d');
     if (context) {
-      console.log("Capturing photo from video");
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
       
       try {
         const photoData = canvas.toDataURL('image/jpeg');
-        console.log("Photo captured successfully");
         setPhoto(photoData);
         stopCamera();
       } catch (error) {
@@ -144,16 +132,13 @@ const PhotoVerification = () => {
     try {
       // Check if user is registered first
       const currentUser = blockchainSystem.getCurrentUser();
-      console.log("Current user check:", currentUser);
       
       if (!currentUser) {
         // Register identity automatically if not registered
-        console.log("No user found, registering identity automatically...");
         await blockchainSystem.registerIdentity("auto-id", "auto-selfie");
         toast.success('Identity registered automatically');
       }
       
-      console.log("Sending photo for verification...");
       const response = await blockchainSystem.savePhotoVerification(photo);
       
       if (response.success) {

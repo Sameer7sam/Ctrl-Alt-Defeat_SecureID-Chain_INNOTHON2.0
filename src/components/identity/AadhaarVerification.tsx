@@ -10,6 +10,7 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp
 import { Check } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { motion } from 'framer-motion';
+import PhoneVerificationField from './PhoneVerificationField';
 
 const AadhaarVerification = () => {
   const [aadhaarNumber, setAadhaarNumber] = useState('');
@@ -21,6 +22,7 @@ const AadhaarVerification = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
+  const [isPhoneVerified, setIsPhoneVerified] = useState(false);
   const [verificationData, setVerificationData] = useState<any>(null);
 
   const verifyAadhaar = async (e: React.FormEvent) => {
@@ -77,17 +79,24 @@ const AadhaarVerification = () => {
     setIsVerified(true);
     toast.success('Aadhaar verification complete');
   };
+  
+  const handlePhoneVerificationSuccess = (data: any) => {
+    setIsPhoneVerified(true);
+  };
+
+  // Compute overall verification status
+  const isFullyVerified = isVerified && isPhoneVerified;
 
   return (
     <Card className="bg-card/60 backdrop-blur-md border-primary/20 shadow-lg neo-blur overflow-hidden">
       <CardHeader>
-        <CardTitle>Aadhaar Verification</CardTitle>
+        <CardTitle>Aadhaar & Phone Verification</CardTitle>
         <CardDescription>
-          Verify your identity using your 12-digit Aadhaar number
+          Complete your identity verification using your Aadhaar details and phone number
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {!isVerified ? (
+        {!isFullyVerified ? (
           isVerifying ? (
             <motion.div 
               className="space-y-6"
@@ -123,78 +132,133 @@ const AadhaarVerification = () => {
               </div>
             </motion.div>
           ) : (
-            <form onSubmit={verifyAadhaar} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="aadhaar">Aadhaar Number</Label>
-                <Input
-                  id="aadhaar"
-                  placeholder="XXXX-XXXX-XXXX"
-                  value={aadhaarNumber}
-                  onChange={(e) => setAadhaarNumber(e.target.value)}
-                  className="bg-background/50 border-primary/30 focus-visible:ring-primary"
-                  required
-                />
-                <p className="text-xs text-muted-foreground">Enter your 12-digit Aadhaar number</p>
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="fullName">Full Name</Label>
-                <Input
-                  id="fullName"
-                  placeholder="As per Aadhaar"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  className="bg-background/50 border-primary/30 focus-visible:ring-primary"
-                  required
-                />
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="dob">Date of Birth</Label>
-                  <Input
-                    id="dob"
-                    type="date"
-                    value={dateOfBirth}
-                    onChange={(e) => setDateOfBirth(e.target.value)}
-                    className="bg-background/50 border-primary/30 focus-visible:ring-primary"
-                    required
+            <>
+              {isVerified ? (
+                <div className="space-y-6">
+                  <motion.div 
+                    className="flex justify-center"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center">
+                      <Check className="h-8 w-8 text-green-500" />
+                    </div>
+                  </motion.div>
+                  
+                  <div className="text-center space-y-2">
+                    <h3 className="text-xl font-bold">Aadhaar Verified</h3>
+                    <p className="text-muted-foreground">Your Aadhaar has been successfully verified</p>
+                  </div>
+                  
+                  <Separator />
+                  
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Name:</span>
+                      <span className="font-medium">{fullName}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Aadhaar:</span>
+                      <span className="font-medium">XXXX-XXXX-{aadhaarNumber.slice(-4)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Verified On:</span>
+                      <span className="font-medium">{new Date().toLocaleString()}</span>
+                    </div>
+                  </div>
+                  
+                  {/* Phone Verification Section */}
+                  <PhoneVerificationField 
+                    onVerificationSuccess={handlePhoneVerificationSuccess} 
+                    disabled={isPhoneVerified}
                   />
+                  
+                  {isPhoneVerified && (
+                    <div className="bg-green-500/10 p-4 rounded-md flex items-center justify-between">
+                      <span>Phone number verification</span>
+                      <span className="flex items-center text-green-500">
+                        <Check className="h-4 w-4 mr-1" />
+                        Complete
+                      </span>
+                    </div>
+                  )}
                 </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Registered Mobile</Label>
-                  <Input
-                    id="phone"
-                    placeholder="10-digit number"
-                    value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
-                    className="bg-background/50 border-primary/30 focus-visible:ring-primary"
-                    required
-                  />
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="address">Address</Label>
-                <Input
-                  id="address"
-                  placeholder="As per Aadhaar"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  className="bg-background/50 border-primary/30 focus-visible:ring-primary"
-                  required
-                />
-              </div>
-              
-              <Button 
-                type="submit" 
-                disabled={isLoading}
-                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
-              >
-                {isLoading ? 'Verifying...' : 'Verify & Send OTP'}
-              </Button>
-            </form>
+              ) : (
+                <form onSubmit={verifyAadhaar} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="aadhaar">Aadhaar Number</Label>
+                    <Input
+                      id="aadhaar"
+                      placeholder="XXXX-XXXX-XXXX"
+                      value={aadhaarNumber}
+                      onChange={(e) => setAadhaarNumber(e.target.value)}
+                      className="bg-background/50 border-primary/30 focus-visible:ring-primary"
+                      required
+                    />
+                    <p className="text-xs text-muted-foreground">Enter your 12-digit Aadhaar number</p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="fullName">Full Name</Label>
+                    <Input
+                      id="fullName"
+                      placeholder="As per Aadhaar"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      className="bg-background/50 border-primary/30 focus-visible:ring-primary"
+                      required
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="dob">Date of Birth</Label>
+                      <Input
+                        id="dob"
+                        type="date"
+                        value={dateOfBirth}
+                        onChange={(e) => setDateOfBirth(e.target.value)}
+                        className="bg-background/50 border-primary/30 focus-visible:ring-primary"
+                        required
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">Registered Mobile</Label>
+                      <Input
+                        id="phone"
+                        placeholder="10-digit number"
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        className="bg-background/50 border-primary/30 focus-visible:ring-primary"
+                        required
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="address">Address</Label>
+                    <Input
+                      id="address"
+                      placeholder="As per Aadhaar"
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                      className="bg-background/50 border-primary/30 focus-visible:ring-primary"
+                      required
+                    />
+                  </div>
+                  
+                  <Button 
+                    type="submit" 
+                    disabled={isLoading}
+                    className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                  >
+                    {isLoading ? 'Verifying...' : 'Verify & Send OTP'}
+                  </Button>
+                </form>
+              )}
+            </>
           )
         ) : (
           <motion.div 
@@ -211,23 +275,33 @@ const AadhaarVerification = () => {
             
             <div className="text-center space-y-2">
               <h3 className="text-xl font-bold">Verification Complete</h3>
-              <p className="text-muted-foreground">Your Aadhaar has been successfully verified</p>
+              <p className="text-muted-foreground">Your identity has been fully verified</p>
             </div>
             
             <Separator />
             
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Name:</span>
-                <span className="font-medium">{fullName}</span>
+            <div className="space-y-4">
+              <div className="bg-green-500/10 p-4 rounded-md">
+                <div className="flex justify-between items-center">
+                  <span className="font-medium">Aadhaar Verification</span>
+                  <span className="flex items-center text-green-500">
+                    <Check className="h-4 w-4 mr-1" />
+                    Complete
+                  </span>
+                </div>
+                <div className="text-sm text-muted-foreground mt-2">
+                  {fullName} • XXXX-XXXX-{aadhaarNumber.slice(-4)}
+                </div>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Aadhaar:</span>
-                <span className="font-medium">XXXX-XXXX-{aadhaarNumber.slice(-4)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Verified On:</span>
-                <span className="font-medium">{new Date().toLocaleString()}</span>
+              
+              <div className="bg-green-500/10 p-4 rounded-md">
+                <div className="flex justify-between items-center">
+                  <span className="font-medium">Phone Verification</span>
+                  <span className="flex items-center text-green-500">
+                    <Check className="h-4 w-4 mr-1" />
+                    Complete
+                  </span>
+                </div>
               </div>
             </div>
           </motion.div>
