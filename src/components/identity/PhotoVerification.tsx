@@ -39,6 +39,8 @@ const PhotoVerification = () => {
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { 
           facingMode: 'user',
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
         } 
       });
       
@@ -213,7 +215,7 @@ const PhotoVerification = () => {
                       variant="outline"
                       className="mt-4 border-white/20 hover:bg-white/10"
                     >
-                      <CameraOff className="mr-2 h-4 w-4" />
+                      <Camera className="mr-2 h-4 w-4" />
                       Retry Camera Access
                     </Button>
                   </div>
