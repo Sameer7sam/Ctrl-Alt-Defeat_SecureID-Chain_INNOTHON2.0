@@ -64,6 +64,10 @@ export default {
           ring: 'hsl(var(--sidebar-ring))'
         }
       },
+      backgroundImage: {
+        'grid-pattern': 'linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px), linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px)',
+        'radial-gradient': 'radial-gradient(circle at center, rgba(255, 255, 255, 0.1) 0%, transparent 70%)'
+      },
       borderRadius: {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
@@ -71,20 +75,12 @@ export default {
       },
       keyframes: {
         'accordion-down': {
-          from: {
-            height: '0'
-          },
-          to: {
-            height: 'var(--radix-accordion-content-height)'
-          }
+          from: { height: '0', opacity: '0' },
+          to: { height: 'var(--radix-accordion-content-height)', opacity: '1' }
         },
         'accordion-up': {
-          from: {
-            height: 'var(--radix-accordion-content-height)'
-          },
-          to: {
-            height: '0'
-          }
+          from: { height: 'var(--radix-accordion-content-height)', opacity: '1' },
+          to: { height: '0', opacity: '0' }
         },
         'fade-in': {
           '0%': {
@@ -113,6 +109,24 @@ export default {
           '50%': {
             'text-shadow': '0 0 10px rgba(192, 132, 252, 0.2)'
           }
+        },
+        'float-slow': {
+          '0%, 100%': { transform: 'translateY(0) translateX(0)' },
+          '25%': { transform: 'translateY(-20px) translateX(10px)' },
+          '50%': { transform: 'translateY(-10px) translateX(-10px)' },
+          '75%': { transform: 'translateY(10px) translateX(15px)' }
+        },
+        'float-medium': {
+          '0%, 100%': { transform: 'translateY(0) translateX(0)' },
+          '25%': { transform: 'translateY(-15px) translateX(15px)' },
+          '50%': { transform: 'translateY(-25px) translateX(-5px)' },
+          '75%': { transform: 'translateY(10px) translateX(-15px)' }
+        },
+        'float-fast': {
+          '0%, 100%': { transform: 'translateY(0) translateX(0)' },
+          '25%': { transform: 'translateY(-10px) translateX(-10px)' },
+          '50%': { transform: 'translateY(-20px) translateX(10px)' },
+          '75%': { transform: 'translateY(15px) translateX(5px)' }
         }
       },
       animation: {
@@ -120,7 +134,10 @@ export default {
         'accordion-up': 'accordion-up 0.2s ease-out',
         'fade-in': 'fade-in 0.3s ease-out',
         'fade-out': 'fade-out 0.3s ease-out',
-        'glow': 'glow 2s ease-in-out infinite'
+        'glow': 'glow 2s ease-in-out infinite',
+        'float-slow': 'float-slow 20s ease-in-out infinite',
+        'float-medium': 'float-medium 15s ease-in-out infinite',
+        'float-fast': 'float-fast 10s ease-in-out infinite'
       },
       fontFamily: {
         sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif']
