@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { Camera, RefreshCw, Check } from 'lucide-react';
+import { Camera, RefreshCw, Check, CameraOff, AlertCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { blockchainSystem } from '@/lib/blockchain';
 import { motion } from 'framer-motion';
@@ -15,6 +15,7 @@ const PhotoVerification = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isStreamActive, setIsStreamActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [isInitializing, setIsInitializing] = useState(false);
 
   // Ensure we stop the camera when component unmounts
   useEffect(() => {
@@ -25,7 +26,12 @@ const PhotoVerification = () => {
 
   const startCamera = async () => {
     try {
+      // Reset error state and set initializing state
       setCameraError(null);
+      setIsInitializing(true);
+      console.log("Requesting camera permissions...");
+      
+      // Request camera with specific constraints
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { 
           facingMode: 'user',
@@ -34,26 +40,58 @@ const PhotoVerification = () => {
         } 
       });
       
+      console.log("Camera permission granted, stream obtained:", stream);
+      
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         videoRef.current.onloadedmetadata = () => {
-          if (videoRef.current) videoRef.current.play();
-          setIsStreamActive(true);
+          if (videoRef.current) {
+            console.log("Video metadata loaded, playing...");
+            videoRef.current.play()
+              .then(() => {
+                console.log("Video playing successfully");
+                setIsStreamActive(true);
+              })
+              .catch(err => {
+                console.error("Error playing video:", err);
+                setCameraError(`Error playing video: ${err.message}`);
+              });
+          }
         };
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error accessing camera:', error);
-      setCameraError('Could not access camera. Please check your permissions.');
-      toast.error('Could not access camera. Please check your permissions.');
+      
+      // Provide more specific error messages based on common camera errors
+      if (error.name === 'NotAllowedError') {
+        setCameraError('Camera access was denied. Please check your browser permissions.');
+        toast.error('Camera access denied. Please allow camera access in your browser settings.');
+      } else if (error.name === 'NotFoundError') {
+        setCameraError('No camera device found. Please connect a camera and try again.');
+        toast.error('No camera device found.');
+      } else if (error.name === 'NotReadableError') {
+        setCameraError('Camera is already in use by another application.');
+        toast.error('Camera is being used by another application.');
+      } else {
+        setCameraError(`Could not access camera: ${error.message}`);
+        toast.error('Could not access camera. Please check your permissions.');
+      }
+    } finally {
+      setIsInitializing(false);
     }
   };
 
   const stopCamera = () => {
     if (videoRef.current && videoRef.current.srcObject) {
+      console.log("Stopping camera stream");
       const stream = videoRef.current.srcObject as MediaStream;
       const tracks = stream.getTracks();
       
-      tracks.forEach(track => track.stop());
+      tracks.forEach(track => {
+        console.log("Stopping track:", track);
+        track.stop();
+      });
+      
       videoRef.current.srcObject = null;
       setIsStreamActive(false);
     }
@@ -74,10 +112,12 @@ const PhotoVerification = () => {
     
     const context = canvas.getContext('2d');
     if (context) {
+      console.log("Capturing photo from video");
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
       
       try {
         const photoData = canvas.toDataURL('image/jpeg');
+        console.log("Photo captured successfully");
         setPhoto(photoData);
         stopCamera();
       } catch (error) {
@@ -104,12 +144,16 @@ const PhotoVerification = () => {
     try {
       // Check if user is registered first
       const currentUser = blockchainSystem.getCurrentUser();
+      console.log("Current user check:", currentUser);
+      
       if (!currentUser) {
         // Register identity automatically if not registered
+        console.log("No user found, registering identity automatically...");
         await blockchainSystem.registerIdentity("auto-id", "auto-selfie");
         toast.success('Identity registered automatically');
       }
       
+      console.log("Sending photo for verification...");
       const response = await blockchainSystem.savePhotoVerification(photo);
       
       if (response.success) {
@@ -140,8 +184,26 @@ const PhotoVerification = () => {
             <>
               <div className="w-full max-w-md h-64 bg-black/50 rounded-lg overflow-hidden relative">
                 {cameraError && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center p-4">
+                    <AlertCircle className="h-10 w-10 text-red-500 mb-2" />
+                    <p className="text-red-500 text-center">{cameraError}</p>
+                    <Button 
+                      onClick={startCamera}
+                      variant="outline"
+                      className="mt-4 border-white/20 hover:bg-white/10"
+                    >
+                      <CameraOff className="mr-2 h-4 w-4" />
+                      Retry Camera Access
+                    </Button>
+                  </div>
+                )}
+                
+                {isInitializing && (
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <p className="text-red-500 text-center px-4">{cameraError}</p>
+                    <div className="flex flex-col items-center">
+                      <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin"></div>
+                      <p className="mt-2 text-sm text-muted-foreground">Initializing camera...</p>
+                    </div>
                   </div>
                 )}
                 
@@ -153,15 +215,17 @@ const PhotoVerification = () => {
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="flex items-center justify-center h-full">
-                    <Button 
-                      onClick={startCamera}
-                      className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
-                    >
-                      <Camera className="mr-2 h-4 w-4" />
-                      Start Camera
-                    </Button>
-                  </div>
+                  !isInitializing && !cameraError && (
+                    <div className="flex items-center justify-center h-full">
+                      <Button 
+                        onClick={startCamera}
+                        className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                      >
+                        <Camera className="mr-2 h-4 w-4" />
+                        Start Camera
+                      </Button>
+                    </div>
+                  )
                 )}
               </div>
               

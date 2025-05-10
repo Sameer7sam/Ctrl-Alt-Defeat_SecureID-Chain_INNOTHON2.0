@@ -1,6 +1,8 @@
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { toast } from 'sonner';
+import { Loader } from 'lucide-react';
 
 const PhoneVerification = ({
   onVerificationSuccess
@@ -8,6 +10,8 @@ const PhoneVerification = ({
   onVerificationSuccess?: (phoneData: any) => void
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [isScriptLoaded, setIsScriptLoaded] = useState(false);
+  const [isScriptError, setIsScriptError] = useState(false);
   
   useEffect(() => {
     // Load the external script
@@ -15,12 +19,25 @@ const PhoneVerification = ({
     script.src = "https://www.phone.email/sign_in_button_v1.js";
     script.async = true;
     
+    // Add event listeners for success and error
+    script.onload = () => {
+      console.log("Phone verification script loaded successfully");
+      setIsScriptLoaded(true);
+    };
+    
+    script.onerror = () => {
+      console.error("Failed to load phone verification script");
+      setIsScriptError(true);
+      toast.error("Failed to load verification service. Please try again later.");
+    };
+    
     if (containerRef.current) {
       containerRef.current.appendChild(script);
     }
 
     // Define the listener function
     window.phoneEmailListener = function(userObj) {
+      console.log("Phone verification callback received:", userObj);
       const user_json_url = userObj.user_json_url;
       
       // Call the success handler with the user data
@@ -62,7 +79,26 @@ const PhoneVerification = ({
             </p>
           </div>
           
-          <div className="flex justify-center">
+          <div className="flex flex-col items-center justify-center">
+            {isScriptError && (
+              <div className="text-center mb-4">
+                <p className="text-red-500 text-sm">Failed to load verification service.</p>
+                <button 
+                  className="text-primary hover:text-primary/80 text-sm mt-2"
+                  onClick={() => window.location.reload()}
+                >
+                  Refresh page to try again
+                </button>
+              </div>
+            )}
+            
+            {!isScriptLoaded && !isScriptError && (
+              <div className="flex items-center justify-center py-4">
+                <Loader className="h-6 w-6 text-primary animate-spin mr-2" />
+                <span className="text-sm">Loading verification...</span>
+              </div>
+            )}
+            
             <div ref={containerRef} className="pe_signin_button" data-client-id="15695407177920574360"></div>
           </div>
         </div>
