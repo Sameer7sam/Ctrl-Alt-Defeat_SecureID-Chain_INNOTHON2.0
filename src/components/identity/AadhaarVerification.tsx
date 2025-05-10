@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,12 +10,7 @@ import { Check, Phone } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { motion } from 'framer-motion';
 
-// Extend Window interface to include phoneEmailListener
-declare global {
-  interface Window {
-    phoneEmailListener: any;
-  }
-}
+// Remove the duplicate declaration since it's already defined in global.d.ts
 
 const AadhaarVerification = () => {
   const [aadhaarNumber, setAadhaarNumber] = useState('');
@@ -67,8 +61,8 @@ const AadhaarVerification = () => {
         phoneEmailContainerRef.current.appendChild(script);
       }
 
-      // Define the listener function globally
-      window.phoneEmailListener = function(userObj) {
+      // Define the listener function globally with the correct type
+      window.phoneEmailListener = function(userObj: any) {
         console.log("Phone verification callback received:", userObj);
         const user_json_url = userObj.user_json_url;
         
