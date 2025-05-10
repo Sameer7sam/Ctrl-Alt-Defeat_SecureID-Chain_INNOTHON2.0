@@ -23,182 +23,142 @@ import { blockchainSystem } from "@/lib/blockchain";
 import { backendService } from "@/lib/backend";
 import { motion } from "framer-motion";
 import { RefreshCw } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
-interface KeyPair {
-    publicKey: string;
-    privateKey: string;
-    encryptedKey: string;
-}
-
-const KeyManagement = () => {
+const KeyManagement: React.FC = () => {
     const [password, setPassword] = useState("");
-    const [confirmPassword, setConfirmPassword] = useState("");
-    const [keyPair, setKeyPair] = useState<KeyPair | null>(null);
-    const [isGenerating, setIsGenerating] = useState(false);
-    const [isSaving, setIsSaving] = useState(false);
+    const [keys, setKeys] = useState<{
+        publicKey: string;
+        privateKey: string;
+    } | null>(null);
+    const [error, setError] = useState<string | null>(null);
+    const [copied, setCopied] = useState<"public" | "private" | null>(null);
     const [showPrivateKey, setShowPrivateKey] = useState(false);
-    const [isDialogOpen, setIsDialogOpen] = useState(false);
-    const [copySuccess, setCopySuccess] = useState<"public" | "private" | null>(
-        null
-    );
+    const [isGenerating, setIsGenerating] = useState(false);
 
-    // Generate key pair with password
     const handleGenerateKeys = async () => {
-        if (!password) {
-            toast.error("Please enter a password to protect your keys");
-            return;
-        }
-
-        setIsGenerating(true);
         try {
+            setError(null);
+            setIsGenerating(true);
+
+            if (!password) {
+                setError("Please enter a password to protect your keys");
+                return;
+            }
+
             const currentUser = blockchainSystem.getCurrentUser();
             if (!currentUser) {
-                const response = await blockchainSystem.registerIdentity(
-                    "auto-id",
-                    "auto-selfie"
-                );
-                if (!response.success) {
-                    throw new Error("Failed to register identity");
-                }
+                setError("No user found. Please connect your wallet first.");
+                return;
             }
 
-            // Generate new keys
-            const keys = await blockchainSystem.generateNewKeys();
-            if (!keys) {
-                throw new Error("Failed to generate keys");
+            const newKeys = await blockchainSystem.generateNewKeys();
+            if (!newKeys) {
+                setError("Failed to generate keys");
+                return;
             }
 
-            // Save password to backend
-            const saved = await backendService.saveKeyPassword(
-                currentUser!.publicKey,
-                password
+            const success = await backendService.storeKeys(
+                currentUser.publicKey,
+                password,
+                newKeys
             );
-            if (!saved) {
-                throw new Error("Failed to save key password");
+
+            if (!success) {
+                setError("Failed to store keys");
+                return;
             }
 
-            // Set the key pair
-            setKeyPair({
-                publicKey: keys.publicKey,
-                privateKey: keys.privateKey,
-                encryptedKey: keys.privateKey, // For demo purposes, we're not actually encrypting
-            });
-
-            toast.success("Keys generated and password saved successfully!");
-            setPassword("");
+            setKeys(newKeys);
+            toast.success("Keys generated and stored successfully!");
         } catch (error) {
             console.error("Error generating keys:", error);
-            toast.error("Failed to generate keys");
+            setError("Failed to generate keys. Please try again.");
         } finally {
             setIsGenerating(false);
         }
     };
 
-    // Copy key to clipboard
-    const copyToClipboard = (text: string, type: "public" | "private") => {
-        navigator.clipboard.writeText(text).then(
-            () => {
-                setCopySuccess(type);
-                setTimeout(() => setCopySuccess(null), 2000);
-                toast.success(
-                    `${
-                        type === "public" ? "Public" : "Private"
-                    } key copied to clipboard`
-                );
-            },
-            () => {
-                toast.error("Failed to copy key");
-            }
-        );
-    };
-
-    // Format key for display (truncate)
-    const formatKey = (key: string): string => {
-        if (!key) return "";
-        return `${key.substring(0, 6)}...${key.substring(key.length - 4)}`;
+    const copyToClipboard = async (
+        text: string,
+        type: "public" | "private"
+    ) => {
+        try {
+            await navigator.clipboard.writeText(text);
+            setCopied(type);
+            setTimeout(() => setCopied(null), 2000);
+            toast.success(
+                `${
+                    type === "public" ? "Public" : "Private"
+                } key copied to clipboard`
+            );
+        } catch (error) {
+            console.error("Error copying to clipboard:", error);
+            setError("Failed to copy to clipboard");
+        }
     };
 
     return (
-        <>
-            <Card className="bg-card/60 backdrop-blur-md border-primary/20 shadow-lg overflow-hidden">
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Key className="h-5 w-5" />
-                        Identity Key Management
-                    </CardTitle>
-                    <CardDescription>
-                        Generate and manage your secure identity keys for
-                        blockchain transactions
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    {!keyPair ? (
-                        <div className="space-y-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="password">Key Password</Label>
-                                <Input
-                                    id="password"
-                                    type="password"
-                                    value={password}
-                                    onChange={(e) =>
-                                        setPassword(e.target.value)
-                                    }
-                                    placeholder="Enter password to protect your keys"
-                                    className="bg-background/50"
-                                    disabled={isGenerating}
-                                />
-                                <p className="text-xs text-muted-foreground">
-                                    This password will be used to protect your
-                                    private keys
-                                </p>
-                            </div>
+        <Card className="w-full max-w-2xl mx-auto">
+            <CardHeader>
+                <CardTitle>Generate New Identity Keys</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <div className="space-y-4">
+                    <div className="space-y-2">
+                        <label
+                            htmlFor="password"
+                            className="text-sm font-medium"
+                        >
+                            Set Password
+                        </label>
+                        <Input
+                            id="password"
+                            type="password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="Enter a password to protect your keys"
+                        />
+                    </div>
 
-                            <Button
-                                onClick={handleGenerateKeys}
-                                disabled={isGenerating || !password}
-                                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
-                            >
-                                {isGenerating ? (
-                                    <motion.div
-                                        animate={{ rotate: 360 }}
-                                        transition={{
-                                            duration: 1,
-                                            repeat: Infinity,
-                                            ease: "linear",
-                                        }}
-                                    >
-                                        <RefreshCw className="mr-2 h-4 w-4" />
-                                    </motion.div>
-                                ) : (
-                                    <Key className="mr-2 h-4 w-4" />
-                                )}
-                                {isGenerating
-                                    ? "Generating Keys..."
-                                    : "Generate New Keys"}
-                            </Button>
-                        </div>
-                    ) : (
-                        <div className="space-y-4">
-                            <div className="bg-primary/5 p-3 rounded-md">
-                                <Label className="text-sm text-muted-foreground">
+                    <Button
+                        onClick={handleGenerateKeys}
+                        className="w-full"
+                        disabled={isGenerating}
+                    >
+                        {isGenerating ? "Generating..." : "Generate Keys"}
+                    </Button>
+
+                    {error && (
+                        <Alert variant="destructive">
+                            <AlertDescription>{error}</AlertDescription>
+                        </Alert>
+                    )}
+
+                    {keys && (
+                        <div className="space-y-4 mt-4">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">
                                     Public Key
-                                </Label>
-                                <div className="flex items-center mt-1">
-                                    <code className="bg-black/20 p-2 rounded text-sm flex-1 overflow-x-auto">
-                                        {keyPair.publicKey}
-                                    </code>
+                                </label>
+                                <div className="relative">
+                                    <Input
+                                        value={keys.publicKey}
+                                        readOnly
+                                        className="pr-10"
+                                    />
                                     <Button
                                         variant="ghost"
                                         size="icon"
+                                        className="absolute right-2 top-1/2 -translate-y-1/2"
                                         onClick={() =>
                                             copyToClipboard(
-                                                keyPair.publicKey,
+                                                keys.publicKey,
                                                 "public"
                                             )
                                         }
-                                        className="ml-2"
                                     >
-                                        {copySuccess === "public" ? (
+                                        {copied === "public" ? (
                                             <Check className="h-4 w-4" />
                                         ) : (
                                             <Copy className="h-4 w-4" />
@@ -207,139 +167,59 @@ const KeyManagement = () => {
                                 </div>
                             </div>
 
-                            <div>
-                                <Button
-                                    onClick={() => setIsDialogOpen(true)}
-                                    variant="outline"
-                                    className="w-full flex items-center gap-2 justify-center"
-                                >
-                                    <Eye className="h-4 w-4" />
-                                    View Private Key
-                                </Button>
-                            </div>
-
-                            <div className="bg-yellow-500/10 border border-yellow-500/30 p-3 rounded-md">
-                                <div className="flex items-start gap-2">
-                                    <Lock className="h-5 w-5 text-yellow-500 mt-0.5 flex-shrink-0" />
-                                    <div className="text-sm">
-                                        <p className="font-medium text-yellow-500">
-                                            Important Security Warning
-                                        </p>
-                                        <p className="mt-1 text-muted-foreground">
-                                            This is the only time your private
-                                            key will be shown. Make sure to save
-                                            it in a secure location. If you lose
-                                            this key, you will lose access to
-                                            your identity and assets.
-                                        </p>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">
+                                    Private Key
+                                </label>
+                                <div className="relative">
+                                    <Input
+                                        type={
+                                            showPrivateKey ? "text" : "password"
+                                        }
+                                        value={keys.privateKey}
+                                        readOnly
+                                        className="pr-20"
+                                    />
+                                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1">
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={() =>
+                                                setShowPrivateKey(
+                                                    !showPrivateKey
+                                                )
+                                            }
+                                        >
+                                            {showPrivateKey ? (
+                                                <EyeOff className="h-4 w-4" />
+                                            ) : (
+                                                <Eye className="h-4 w-4" />
+                                            )}
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={() =>
+                                                copyToClipboard(
+                                                    keys.privateKey,
+                                                    "private"
+                                                )
+                                            }
+                                        >
+                                            {copied === "private" ? (
+                                                <Check className="h-4 w-4" />
+                                            ) : (
+                                                <Copy className="h-4 w-4" />
+                                            )}
+                                        </Button>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     )}
-                </CardContent>
-            </Card>
-
-            {/* Dialog for showing private key */}
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            <Key className="h-5 w-5" />
-                            Your Private Key
-                        </DialogTitle>
-                        <DialogDescription>
-                            This key gives full access to your digital identity.
-                            Keep it secret and secure.
-                        </DialogDescription>
-                    </DialogHeader>
-
-                    <div className="space-y-4 py-4">
-                        <div className="bg-black/10 p-4 rounded-md relative">
-                            <div
-                                className={`absolute inset-0 backdrop-blur-md flex items-center justify-center ${
-                                    showPrivateKey ? "hidden" : "block"
-                                }`}
-                            >
-                                <Button
-                                    onClick={() => setShowPrivateKey(true)}
-                                    variant="outline"
-                                    className="flex items-center gap-2"
-                                >
-                                    <Eye className="h-4 w-4" />
-                                    Show Private Key
-                                </Button>
-                            </div>
-
-                            {showPrivateKey && keyPair && (
-                                <div className="break-all font-mono text-sm">
-                                    {keyPair.privateKey}
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="flex justify-between">
-                            <Button
-                                variant="outline"
-                                onClick={() =>
-                                    setShowPrivateKey(!showPrivateKey)
-                                }
-                                className="flex items-center gap-2"
-                            >
-                                {showPrivateKey ? (
-                                    <>
-                                        <EyeOff className="h-4 w-4" />
-                                        Hide Key
-                                    </>
-                                ) : (
-                                    <>
-                                        <Eye className="h-4 w-4" />
-                                        Show Key
-                                    </>
-                                )}
-                            </Button>
-
-                            <Button
-                                onClick={() =>
-                                    keyPair &&
-                                    copyToClipboard(
-                                        keyPair.privateKey,
-                                        "private"
-                                    )
-                                }
-                                disabled={!showPrivateKey}
-                                className="flex items-center gap-2"
-                            >
-                                {copySuccess === "private" ? (
-                                    <>
-                                        <Check className="h-4 w-4" />
-                                        Copied
-                                    </>
-                                ) : (
-                                    <>
-                                        <Copy className="h-4 w-4" />
-                                        Copy
-                                    </>
-                                )}
-                            </Button>
-                        </div>
-
-                        <div className="bg-red-500/10 border border-red-500/30 p-3 rounded-md mt-4">
-                            <div className="text-sm text-center text-muted-foreground">
-                                <p className="font-medium text-red-500">
-                                    Warning!
-                                </p>
-                                <p>
-                                    Never share this key with anyone or enter it
-                                    on any website. Anyone with this key can
-                                    access your identity and assets.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </DialogContent>
-            </Dialog>
-        </>
+                </div>
+            </CardContent>
+        </Card>
     );
 };
 

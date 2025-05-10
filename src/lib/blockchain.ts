@@ -541,6 +541,42 @@ class BlockchainSystem {
         const key = publicKey || this.currentUser?.publicKey;
         return key ? this.walletConnections.get(key) : undefined;
     }
+
+    public async generateNewKeys(): Promise<{
+        publicKey: string;
+        privateKey: string;
+    } | null> {
+        try {
+            const keyPair = await generateKeyPair();
+            return {
+                publicKey: keyPair.publicKey,
+                privateKey: keyPair.privateKey,
+            };
+        } catch (error) {
+            console.error("Error generating new keys:", error);
+            return null;
+        }
+    }
+
+    public async getUserKeys(): Promise<{
+        publicKey: string;
+        privateKey: string;
+    } | null> {
+        try {
+            const currentUser = this.getCurrentUser();
+            if (!currentUser) {
+                return null;
+            }
+
+            return {
+                publicKey: currentUser.publicKey,
+                privateKey: currentUser.privateKey,
+            };
+        } catch (error) {
+            console.error("Error getting user keys:", error);
+            return null;
+        }
+    }
 }
 
 export const blockchainSystem = new BlockchainSystem();

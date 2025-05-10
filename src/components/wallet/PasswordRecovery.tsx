@@ -1,140 +1,174 @@
-import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { backendService } from '@/lib/backend';
-import { useWallet } from '@/lib/useWallet';
-import { useNavigate } from 'react-router-dom';
+import { blockchainSystem } from "@/lib/blockchain";
+import { backendService } from "@/lib/backend";
+import { Copy, Check } from "lucide-react";
 
 export function PasswordRecovery() {
-  const { currentUser } = useWallet();
-  const navigate = useNavigate();
-  const [aadhaarNumber, setAadhaarNumber] = useState('');
-  const [fullName, setFullName] = useState('');
-  const [dateOfBirth, setDateOfBirth] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [recoveredPassword, setRecoveredPassword] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+    const [publicKey, setPublicKey] = useState("");
+    const [recoveryPhrase, setRecoveryPhrase] = useState("");
+    const [keys, setKeys] = useState<{
+        publicKey: string;
+        privateKey: string;
+    } | null>(null);
+    const [error, setError] = useState<string | null>(null);
+    const [copied, setCopied] = useState<"public" | "private" | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!currentUser) {
-      setError('Please connect your wallet first');
-      return;
-    }
+    const handleRecoverKeys = async () => {
+        try {
+            setError(null);
 
-    setLoading(true);
-    setError(null);
-    setRecoveredPassword(null);
+            if (!publicKey || !recoveryPhrase) {
+                setError("Please enter both public key and recovery phrase");
+                return;
+            }
 
-    try {
-      const password = await backendService.recoverWalletPassword(
-        currentUser.publicKey,
-        {
-          aadhaarNumber,
-          fullName,
-          dateOfBirth,
-          phoneNumber
+            const recoveredKeys = await backendService.recoverKeys(
+                publicKey,
+                recoveryPhrase
+            );
+
+            if (!recoveredKeys) {
+                setError("Invalid public key or recovery phrase");
+                return;
+            }
+
+            setKeys(recoveredKeys);
+        } catch (error) {
+            console.error("Error recovering keys:", error);
+            setError("Failed to recover keys. Please try again.");
         }
-      );
+    };
 
-      if (password) {
-        setRecoveredPassword(password);
-      } else {
-        setError('Could not recover password. Please verify your details.');
-      }
-    } catch (err) {
-      setError('An error occurred while recovering your password.');
-    } finally {
-      setLoading(false);
-    }
-  };
+    const copyToClipboard = async (
+        text: string,
+        type: "public" | "private"
+    ) => {
+        try {
+            await navigator.clipboard.writeText(text);
+            setCopied(type);
+            setTimeout(() => setCopied(null), 2000);
+        } catch (error) {
+            console.error("Error copying to clipboard:", error);
+            setError("Failed to copy to clipboard");
+        }
+    };
 
-  return (
-    <Card className="w-full max-w-2xl mx-auto">
-      <CardHeader>
-        <CardTitle>Recover Wallet Password</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="aadhaar">Aadhaar Number</Label>
-            <Input
-              id="aadhaar"
-              value={aadhaarNumber}
-              onChange={(e) => setAadhaarNumber(e.target.value)}
-              placeholder="Enter your Aadhaar number"
-              required
-            />
-          </div>
+    return (
+        <Card className="w-full max-w-2xl mx-auto">
+            <CardHeader>
+                <CardTitle>Recover Your Keys</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <div className="space-y-4">
+                    <div className="space-y-2">
+                        <label
+                            htmlFor="publicKey"
+                            className="text-sm font-medium"
+                        >
+                            Public Key
+                        </label>
+                        <Input
+                            id="publicKey"
+                            value={publicKey}
+                            onChange={(e) => setPublicKey(e.target.value)}
+                            placeholder="Enter your public key"
+                        />
+                    </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="name">Full Name</Label>
-            <Input
-              id="name"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              placeholder="Enter your full name"
-              required
-            />
-          </div>
+                    <div className="space-y-2">
+                        <label
+                            htmlFor="recoveryPhrase"
+                            className="text-sm font-medium"
+                        >
+                            Recovery Phrase
+                        </label>
+                        <Input
+                            id="recoveryPhrase"
+                            value={recoveryPhrase}
+                            onChange={(e) => setRecoveryPhrase(e.target.value)}
+                            placeholder="Enter your recovery phrase"
+                        />
+                    </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="dob">Date of Birth</Label>
-            <Input
-              id="dob"
-              type="date"
-              value={dateOfBirth}
-              onChange={(e) => setDateOfBirth(e.target.value)}
-              required
-            />
-          </div>
+                    <Button onClick={handleRecoverKeys} className="w-full">
+                        Recover Keys
+                    </Button>
 
-          <div className="space-y-2">
-            <Label htmlFor="phone">Phone Number</Label>
-            <Input
-              id="phone"
-              value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
-              placeholder="Enter your phone number"
-              required
-            />
-          </div>
+                    {error && (
+                        <Alert variant="destructive">
+                            <AlertDescription>{error}</AlertDescription>
+                        </Alert>
+                    )}
 
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
+                    {keys && (
+                        <div className="space-y-4 mt-4">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">
+                                    Public Key
+                                </label>
+                                <div className="relative">
+                                    <Input
+                                        value={keys.publicKey}
+                                        readOnly
+                                        className="pr-10"
+                                    />
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="absolute right-2 top-1/2 -translate-y-1/2"
+                                        onClick={() =>
+                                            copyToClipboard(
+                                                keys.publicKey,
+                                                "public"
+                                            )
+                                        }
+                                    >
+                                        {copied === "public" ? (
+                                            <Check className="h-4 w-4" />
+                                        ) : (
+                                            <Copy className="h-4 w-4" />
+                                        )}
+                                    </Button>
+                                </div>
+                            </div>
 
-          {recoveredPassword && (
-            <Alert>
-              <AlertDescription>
-                Your wallet password has been recovered. Please keep it safe.
-                <div className="mt-2 p-2 bg-muted rounded">
-                  {recoveredPassword}
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">
+                                    Private Key
+                                </label>
+                                <div className="relative">
+                                    <Input
+                                        value={keys.privateKey}
+                                        readOnly
+                                        className="pr-10"
+                                    />
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="absolute right-2 top-1/2 -translate-y-1/2"
+                                        onClick={() =>
+                                            copyToClipboard(
+                                                keys.privateKey,
+                                                "private"
+                                            )
+                                        }
+                                    >
+                                        {copied === "private" ? (
+                                            <Check className="h-4 w-4" />
+                                        ) : (
+                                            <Copy className="h-4 w-4" />
+                                        )}
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
-              </AlertDescription>
-            </Alert>
-          )}
-
-          <div className="flex gap-4">
-            <Button type="submit" className="flex-1" disabled={loading}>
-              {loading ? 'Recovering...' : 'Recover Password'}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => navigate('/wallet')}
-            >
-              Back to Wallet
-            </Button>
-          </div>
-        </form>
-      </CardContent>
-    </Card>
-  );
-} 
+            </CardContent>
+        </Card>
+    );
+}

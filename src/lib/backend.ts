@@ -33,10 +33,143 @@ interface Transaction {
     signature: string;
 }
 
+interface StoredKeys {
+    publicKey: string;
+    privateKey: string;
+    passwordHash: string;
+    salt: string;
+    createdAt: number;
+}
+
 class BackendService {
+    private static instance: BackendService;
     private users: Map<string, UserData> = new Map();
     private transactions: Map<string, Transaction> = new Map();
     private walletPasswords: Map<string, string> = new Map();
+    private keys: Map<string, StoredKeys> = new Map();
+    private readonly STORAGE_KEY = "identity_chain_keys";
+
+    private constructor() {
+        this.loadFromStorage();
+    }
+
+    public static getInstance(): BackendService {
+        if (!BackendService.instance) {
+            BackendService.instance = new BackendService();
+        }
+        return BackendService.instance;
+    }
+
+    private loadFromStorage(): void {
+        try {
+            const stored = localStorage.getItem(this.STORAGE_KEY);
+            if (stored) {
+                const parsed = JSON.parse(stored);
+                this.keys = new Map(Object.entries(parsed));
+            }
+        } catch (error) {
+            console.error("Error loading keys from storage:", error);
+            this.keys = new Map();
+        }
+    }
+
+    private saveToStorage(): void {
+        try {
+            const obj = Object.fromEntries(this.keys);
+            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(obj));
+        } catch (error) {
+            console.error("Error saving keys to storage:", error);
+        }
+    }
+
+    private generateSalt(): string {
+        return CryptoJS.lib.WordArray.random(128 / 8).toString();
+    }
+
+    private hashPassword(password: string, salt: string): string {
+        return CryptoJS.PBKDF2(password, salt, {
+            keySize: 256 / 32,
+            iterations: 1000,
+        }).toString();
+    }
+
+    public async storeKeys(
+        publicKey: string,
+        password: string,
+        keys: { publicKey: string; privateKey: string }
+    ): Promise<boolean> {
+        try {
+            const salt = this.generateSalt();
+            const passwordHash = this.hashPassword(password, salt);
+
+            const storedKeys: StoredKeys = {
+                publicKey: keys.publicKey,
+                privateKey: keys.privateKey,
+                passwordHash,
+                salt,
+                createdAt: Date.now(),
+            };
+
+            this.keys.set(publicKey, storedKeys);
+            this.saveToStorage();
+            return true;
+        } catch (error) {
+            console.error("Error storing keys:", error);
+            return false;
+        }
+    }
+
+    public async verifyAndGetKeys(
+        publicKey: string,
+        password: string
+    ): Promise<{ publicKey: string; privateKey: string } | null> {
+        try {
+            const storedKeys = this.keys.get(publicKey);
+            if (!storedKeys) return null;
+
+            const passwordHash = this.hashPassword(password, storedKeys.salt);
+            if (passwordHash !== storedKeys.passwordHash) return null;
+
+            return {
+                publicKey: storedKeys.publicKey,
+                privateKey: storedKeys.privateKey,
+            };
+        } catch (error) {
+            console.error("Error verifying and getting keys:", error);
+            return null;
+        }
+    }
+
+    public async recoverKeys(
+        publicKey: string,
+        recoveryPhrase: string
+    ): Promise<{ publicKey: string; privateKey: string } | null> {
+        try {
+            const storedKeys = this.keys.get(publicKey);
+            if (!storedKeys) return null;
+
+            // In a real implementation, you would verify the recovery phrase here
+            // For now, we'll just return the keys if the public key exists
+            return {
+                publicKey: storedKeys.publicKey,
+                privateKey: storedKeys.privateKey,
+            };
+        } catch (error) {
+            console.error("Error recovering keys:", error);
+            return null;
+        }
+    }
+
+    public async deleteKeys(publicKey: string): Promise<boolean> {
+        try {
+            this.keys.delete(publicKey);
+            this.saveToStorage();
+            return true;
+        } catch (error) {
+            console.error("Error deleting keys:", error);
+            return false;
+        }
+    }
 
     // User Management
     async createUser(
@@ -44,7 +177,10 @@ class BackendService {
         privateKeyPassword: string
     ): Promise<string> {
         const userId = uuidv4();
-        const hashedPassword = this.hashPassword(privateKeyPassword);
+        const hashedPassword = this.hashPassword(
+            privateKeyPassword,
+            this.generateSalt()
+        );
 
         this.users.set(userId, {
             id: userId,
@@ -80,7 +216,7 @@ class BackendService {
         const user = this.users.get(userId);
         if (!user) return false;
 
-        const hashedPassword = this.hashPassword(password);
+        const hashedPassword = this.hashPassword(password, this.generateSalt());
         return user.privateKeyPassword === hashedPassword;
     }
 
@@ -249,11 +385,6 @@ class BackendService {
         return null;
     }
 
-    // Helper Methods
-    private hashPassword(password: string): string {
-        return CryptoJS.SHA256(password).toString();
-    }
-
     // Verification Status
     async isFullyVerified(userId: string): Promise<boolean> {
         const user = this.users.get(userId);
@@ -265,51 +396,4 @@ class BackendService {
     }
 }
 
-// Simple in-memory storage for demo purposes
-const keyPasswordStorage = new Map<string, string>();
-
-export const backendService = {
-    // Store key password
-    saveKeyPassword: async (
-        publicKey: string,
-        password: string
-    ): Promise<boolean> => {
-        try {
-            keyPasswordStorage.set(publicKey, password);
-            return true;
-        } catch (error) {
-            console.error("Error saving key password:", error);
-            return false;
-        }
-    },
-
-    // Retrieve key password
-    getKeyPassword: async (publicKey: string): Promise<string | null> => {
-        try {
-            return keyPasswordStorage.get(publicKey) || null;
-        } catch (error) {
-            console.error("Error retrieving key password:", error);
-            return null;
-        }
-    },
-
-    // Check if key password exists
-    hasKeyPassword: async (publicKey: string): Promise<boolean> => {
-        try {
-            return keyPasswordStorage.has(publicKey);
-        } catch (error) {
-            console.error("Error checking key password:", error);
-            return false;
-        }
-    },
-
-    // Remove key password
-    removeKeyPassword: async (publicKey: string): Promise<boolean> => {
-        try {
-            return keyPasswordStorage.delete(publicKey);
-        } catch (error) {
-            console.error("Error removing key password:", error);
-            return false;
-        }
-    },
-};
+export const backendService = BackendService.getInstance();
