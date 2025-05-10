@@ -15,8 +15,20 @@ class WalletService {
   private transactionCounter: Map<string, { count: number, lastReset: number }> = new Map();
   private readonly MAX_TRANSACTIONS_PER_MINUTE = 3;
   
+  // Local storage keys
+  private readonly KEY_WALLET_CONNECTION = 'walletConnection';
+  private readonly KEY_PUBLIC_KEY = 'securePublicKey';
+  private readonly KEY_ENCRYPTED_KEY = 'secureEncryptedKey';
+  private readonly KEY_DID_IDENTIFIER = 'secureDidIdentifier';
+  
   // Create a secure keystore with password protection
-  public async generateSecureKeyPair(password: string): Promise<{ publicKey: string; privateKey: string; encryptedKey: string }> {
+  public async generateSecureKeyPair(password: string): Promise<{ publicKey: string; privateKey: string; encryptedKey: string; didIdentifier: string } | null> {
+    // Check if keys already exist
+    if (this.hasGeneratedKeys()) {
+      toast.error("Keys have already been generated. Each wallet can only generate one set of keys.");
+      return null;
+    }
+    
     // Create a wallet with a random private key
     const wallet = ethers.Wallet.createRandom();
     
@@ -24,14 +36,45 @@ class WalletService {
     const privateKey = wallet.privateKey;
     const publicKey = wallet.address;
     
+    // Generate DID identifier (Decentralized Identifier)
+    // Format: did:ethr:{networknamespace}:{address}
+    const didIdentifier = `did:ethr:main:${publicKey}`;
+    
     // Encrypt the private key with the password
     const encryptedKey = await this.encryptKey(privateKey, password);
+    
+    // Store keys in localStorage
+    localStorage.setItem(this.KEY_PUBLIC_KEY, publicKey);
+    localStorage.setItem(this.KEY_ENCRYPTED_KEY, encryptedKey);
+    localStorage.setItem(this.KEY_DID_IDENTIFIER, didIdentifier);
     
     return {
       publicKey,
       privateKey, // Only shown once to the user
-      encryptedKey // This is what gets stored
+      encryptedKey, // This is what gets stored
+      didIdentifier
     };
+  }
+  
+  // Check if keys have been generated before
+  public hasGeneratedKeys(): boolean {
+    return !!localStorage.getItem(this.KEY_PUBLIC_KEY) && 
+           !!localStorage.getItem(this.KEY_ENCRYPTED_KEY);
+  }
+  
+  // Get the stored public key
+  public getPublicKey(): string | null {
+    return localStorage.getItem(this.KEY_PUBLIC_KEY);
+  }
+  
+  // Get the stored DID identifier
+  public getDidIdentifier(): string | null {
+    return localStorage.getItem(this.KEY_DID_IDENTIFIER);
+  }
+  
+  // Get the encrypted private key
+  public getEncryptedKey(): string | null {
+    return localStorage.getItem(this.KEY_ENCRYPTED_KEY);
   }
   
   // Encrypt a private key with a password
@@ -43,13 +86,25 @@ class WalletService {
   }
   
   // Decrypt a private key with a password
-  public async decryptKey(encryptedKey: string, password: string): Promise<string | null> {
-    // This is a mock implementation since we're not actually encrypting
-    // In a real app, this would decrypt the key using the password
+  public async decryptKey(password: string): Promise<string | null> {
+    const encryptedKey = this.getEncryptedKey();
+    if (!encryptedKey) return null;
+    
     try {
-      // Simulate checking password - in real app this would decrypt the key
-      return "0x" + Array(64).fill(0).map(() => 
-        Math.floor(Math.random() * 16).toString(16)).join('');
+      // This is a mock implementation since we're not actually encrypting
+      // In a real app, this would decrypt the key using the password
+      // We simulate a password check
+      const testHash = await sha256(password + "test");
+      const passwordHash = await sha256(password);
+      
+      // Simple check to verify password is correct (not secure, just for demo)
+      if (passwordHash.substring(0, 8) === encryptedKey.substring(0, 8)) {
+        return "0x" + Array(64).fill(0).map(() => 
+          Math.floor(Math.random() * 16).toString(16)).join('');
+      } else {
+        toast.error("Incorrect password");
+        return null;
+      }
     } catch (error) {
       console.error("Failed to decrypt key:", error);
       return null;
@@ -90,17 +145,20 @@ class WalletService {
         const accounts = await provider.listAccounts();
         const address = await accounts[0].getAddress();
         const network = await provider.getNetwork();
+        const balance = await provider.getBalance(address);
+        const etherBalance = ethers.formatEther(balance);
         
         // Create wallet connection object
         const walletConnection: WalletConnection = {
           address,
           network: this.formatNetworkName(network.name, Number(network.chainId)),
           connected: true,
-          connectedAt: Date.now()
+          connectedAt: Date.now(),
+          balance: etherBalance
         };
 
         // Save connection to localStorage
-        localStorage.setItem('walletConnection', JSON.stringify(walletConnection));
+        localStorage.setItem(this.KEY_WALLET_CONNECTION, JSON.stringify(walletConnection));
         
         return {
           success: true,
@@ -131,7 +189,7 @@ class WalletService {
   public async disconnectWallet(): Promise<{ success: boolean; message: string }> {
     try {
       // Remove from localStorage
-      localStorage.removeItem('walletConnection');
+      localStorage.removeItem(this.KEY_WALLET_CONNECTION);
       
       return {
         success: true,
@@ -149,7 +207,7 @@ class WalletService {
   // Get saved wallet connection
   public getWalletConnection(): WalletConnection | undefined {
     try {
-      const savedConnection = localStorage.getItem('walletConnection');
+      const savedConnection = localStorage.getItem(this.KEY_WALLET_CONNECTION);
       if (savedConnection) {
         const connection = JSON.parse(savedConnection) as WalletConnection;
         return connection;
@@ -158,6 +216,28 @@ class WalletService {
     } catch (error) {
       console.error("Error retrieving wallet connection:", error);
       return undefined;
+    }
+  }
+
+  // Get current network gas information
+  public async getNetworkInfo(): Promise<{ gasPrice: string; latestBlock: number } | null> {
+    try {
+      if (!window.ethereum) return null;
+      
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const gasPrice = await provider.getGasPrice();
+      const formattedGasPrice = `${Math.round(Number(ethers.formatUnits(gasPrice, 'gwei')))} Gwei`;
+      
+      // Get latest block number
+      const blockNumber = await provider.getBlockNumber();
+      
+      return {
+        gasPrice: formattedGasPrice,
+        latestBlock: blockNumber
+      };
+    } catch (error) {
+      console.error("Error getting network info:", error);
+      return null;
     }
   }
 

@@ -3,18 +3,22 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Wallet as WalletIcon, Globe, Loader2, ChevronDown, Shield, LogOut } from "lucide-react";
+import { Wallet as WalletIcon, Globe, Loader2, ChevronDown, Shield, LogOut, User, Clock } from "lucide-react";
 import { blockchainSystem } from "@/lib/blockchain";
 import { useTheme } from "@/components/ThemeProvider";
 import { WalletConnection } from "@/lib/types";
 import { walletService } from "@/lib/walletService";
+import { useNavigate } from "react-router-dom";
 
 const Wallet = () => {
   const { theme } = useTheme();
+  const navigate = useNavigate();
   const [isConnecting, setIsConnecting] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [walletConnection, setWalletConnection] = useState<WalletConnection | undefined>(undefined);
   const [isVerified, setIsVerified] = useState(false);
+  const [networkInfo, setNetworkInfo] = useState<{ gasPrice: string; latestBlock: number } | null>(null);
+  const [didIdentifier, setDidIdentifier] = useState<string | null>(null);
   
   // Check if wallet is already connected
   useEffect(() => {
@@ -29,15 +33,37 @@ const Wallet = () => {
         if (!isConnected) {
           setWalletConnection(undefined);
           localStorage.removeItem('walletConnection');
+        } else {
+          // Get latest network information
+          const networkData = await walletService.getNetworkInfo();
+          if (networkData) {
+            setNetworkInfo(networkData);
+          }
         }
       }
       
       // Check if user is verified
       const verification = blockchainSystem.getVerification();
       setIsVerified(!!verification && verification.verified);
+      
+      // Get DID identifier
+      const did = walletService.getDidIdentifier();
+      setDidIdentifier(did);
     };
     
     checkWalletConnection();
+    
+    // Set up interval to refresh network info
+    const intervalId = setInterval(async () => {
+      if (walletConnection) {
+        const networkData = await walletService.getNetworkInfo();
+        if (networkData) {
+          setNetworkInfo(networkData);
+        }
+      }
+    }, 30000); // Refresh every 30 seconds
+    
+    return () => clearInterval(intervalId);
   }, []);
   
   const handleConnectWallet = async () => {
@@ -49,6 +75,12 @@ const Wallet = () => {
       if (response.success && response.data) {
         setWalletConnection(response.data);
         toast.success("Wallet connected successfully!");
+        
+        // Get network info
+        const networkData = await walletService.getNetworkInfo();
+        if (networkData) {
+          setNetworkInfo(networkData);
+        }
         
         // Register with blockchain system if needed
         const currentUser = blockchainSystem.getCurrentUser();
@@ -74,6 +106,7 @@ const Wallet = () => {
       
       if (response.success) {
         setWalletConnection(undefined);
+        setNetworkInfo(null);
         toast.success("Wallet disconnected successfully!");
       } else {
         toast.error(response.message || "Failed to disconnect wallet");
@@ -84,6 +117,10 @@ const Wallet = () => {
     } finally {
       setIsDisconnecting(false);
     }
+  };
+  
+  const navigateToIdentityKeys = () => {
+    navigate('/identity');
   };
   
   const formatAddress = (address: string): string => {
@@ -151,6 +188,19 @@ const Wallet = () => {
                   </Button>
                 </div>
                 
+                <div className="mt-4 flex justify-between items-center">
+                  <div>
+                    <div className={`text-sm ${textMutedColor}`}>Balance</div>
+                    <div className={`font-medium ${textColor}`}>
+                      {walletConnection.balance ? `${parseFloat(walletConnection.balance).toFixed(4)} ETH` : 'Loading...'}
+                    </div>
+                  </div>
+                  <div className={`text-sm flex items-center ${theme === "dark" ? "text-green-400" : "text-green-600"}`}>
+                    <Clock className="w-4 h-4 mr-1" />
+                    <span>Updated just now</span>
+                  </div>
+                </div>
+                
                 <div className="mt-4 pt-4 border-t border-gray-700">
                   <div className="text-sm flex justify-between">
                     <span className={textMutedColor}>Connected at</span>
@@ -174,8 +224,12 @@ const Wallet = () => {
                     </>
                   )}
                 </Button>
-                <Button className={`w-full ${theme === "dark" ? "bg-purple-700 hover:bg-purple-800" : ""}`}>
-                  Explore Assets
+                <Button 
+                  className={`w-full ${theme === "dark" ? "bg-purple-700 hover:bg-purple-800" : ""}`}
+                  onClick={navigateToIdentityKeys}
+                >
+                  <User className="w-4 h-4 mr-2" />
+                  Identity Keys
                 </Button>
               </div>
             </div>
@@ -237,15 +291,15 @@ const Wallet = () => {
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <span className={textMutedColor}>Gas Price</span>
-                  <span className={textColor}>32 Gwei</span>
+                  <span className={textColor}>{networkInfo ? networkInfo.gasPrice : (walletConnection ? "Loading..." : "N/A")}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className={textMutedColor}>Latest Block</span>
-                  <span className={textColor}>15,402,349</span>
+                  <span className={textColor}>{networkInfo ? networkInfo.latestBlock.toLocaleString() : (walletConnection ? "Loading..." : "N/A")}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className={textMutedColor}>Confirmation Time</span>
-                  <span className={textColor}>~15 seconds</span>
+                  <span className={textColor}>{walletConnection ? "~15 seconds" : "N/A"}</span>
                 </div>
               </div>
             </div>
@@ -278,8 +332,26 @@ const Wallet = () => {
               </span>
             </div>
             
+            <div className="flex items-center justify-between">
+              <span className={textColor}>Identity Keys</span>
+              <span className={`px-2 py-1 rounded-full text-xs font-medium ${walletService.hasGeneratedKeys() 
+                ? "bg-green-100 text-green-800" 
+                : "bg-yellow-100 text-yellow-800"}`}>
+                {walletService.hasGeneratedKeys() ? "Generated" : "Not Generated"}
+              </span>
+            </div>
+            
+            {didIdentifier && (
+              <div className={`p-3 rounded-md ${theme === "dark" ? "bg-gray-800" : "bg-gray-50"}`}>
+                <div className={`text-sm ${textMutedColor}`}>DID Identifier</div>
+                <div className={`font-medium ${textColor} mt-1 break-all`}>
+                  {didIdentifier}
+                </div>
+              </div>
+            )}
+            
             <div className="mt-4">
-              {!isVerified && (
+              {(!isVerified || !walletService.hasGeneratedKeys()) && (
                 <Button 
                   asChild 
                   variant="outline" 

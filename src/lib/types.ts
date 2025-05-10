@@ -59,4 +59,5 @@ export interface WalletConnection {
   network: string;
   connected: boolean;
   connectedAt: number;
+  balance?: string;
 }

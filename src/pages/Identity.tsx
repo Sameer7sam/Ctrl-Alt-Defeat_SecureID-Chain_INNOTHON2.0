@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import PhotoVerification from '@/components/identity/PhotoVerification';
 import AadhaarVerification from '@/components/identity/AadhaarVerification';
 import KeyManagement from '@/components/identity/KeyManagement';
+import ViewIdentityKeys from '@/components/identity/ViewIdentityKeys';
 
 const Identity = () => {
   return (
@@ -21,10 +22,11 @@ const Identity = () => {
         </div>
 
         <Tabs defaultValue="photo" className="w-full">
-          <TabsList className="grid grid-cols-3 mb-6">
+          <TabsList className="grid grid-cols-4 mb-6">
             <TabsTrigger value="photo">Photo Verification</TabsTrigger>
             <TabsTrigger value="aadhaar">Aadhaar & Phone</TabsTrigger>
-            <TabsTrigger value="keys">Identity Keys</TabsTrigger>
+            <TabsTrigger value="keys">Generate Keys</TabsTrigger>
+            <TabsTrigger value="viewkeys">View Keys</TabsTrigger>
           </TabsList>
           
           <TabsContent value="photo" className="space-y-6">
@@ -37,6 +39,10 @@ const Identity = () => {
           
           <TabsContent value="keys" className="space-y-6">
             <KeyManagement />
+          </TabsContent>
+          
+          <TabsContent value="viewkeys" className="space-y-6">
+            <ViewIdentityKeys />
           </TabsContent>
         </Tabs>
       </div>
