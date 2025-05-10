@@ -116,7 +116,23 @@ class BackendService {
         gender: "male" | "female"
     ): Promise<boolean> {
         const user = this.users.get(userId);
-        if (!user) return false;
+        if (!user) {
+            // Create a new user if not exists
+            const newUserId = await this.createUser(userId, "default-password");
+            const newUser = this.users.get(newUserId);
+            if (!newUser) return false;
+
+            newUser.aadhaarVerification = {
+                aadhaarNumber,
+                fullName,
+                dateOfBirth,
+                phoneNumber,
+                gender,
+                verified: true,
+                verifiedAt: Date.now(),
+            };
+            return true;
+        }
 
         user.aadhaarVerification = {
             aadhaarNumber,
@@ -249,4 +265,51 @@ class BackendService {
     }
 }
 
-export const backendService = new BackendService();
+// Simple in-memory storage for demo purposes
+const keyPasswordStorage = new Map<string, string>();
+
+export const backendService = {
+    // Store key password
+    saveKeyPassword: async (
+        publicKey: string,
+        password: string
+    ): Promise<boolean> => {
+        try {
+            keyPasswordStorage.set(publicKey, password);
+            return true;
+        } catch (error) {
+            console.error("Error saving key password:", error);
+            return false;
+        }
+    },
+
+    // Retrieve key password
+    getKeyPassword: async (publicKey: string): Promise<string | null> => {
+        try {
+            return keyPasswordStorage.get(publicKey) || null;
+        } catch (error) {
+            console.error("Error retrieving key password:", error);
+            return null;
+        }
+    },
+
+    // Check if key password exists
+    hasKeyPassword: async (publicKey: string): Promise<boolean> => {
+        try {
+            return keyPasswordStorage.has(publicKey);
+        } catch (error) {
+            console.error("Error checking key password:", error);
+            return false;
+        }
+    },
+
+    // Remove key password
+    removeKeyPassword: async (publicKey: string): Promise<boolean> => {
+        try {
+            return keyPasswordStorage.delete(publicKey);
+        } catch (error) {
+            console.error("Error removing key password:", error);
+            return false;
+        }
+    },
+};
