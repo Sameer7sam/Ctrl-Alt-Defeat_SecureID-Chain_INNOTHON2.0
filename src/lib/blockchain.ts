@@ -209,7 +209,7 @@ class BlockchainSystem {
                 aadhaarNumber: "",
                 fullName: "",
                 dateOfBirth: "",
-                gender: "",
+                address: "",
                 verified: false,
                 photoUrl,
             };
@@ -217,7 +217,6 @@ class BlockchainSystem {
             verification.photoUrl = photoUrl;
         }
 
-        // Set the verification in the map
         this.identityVerifications.set(
             this.currentUser.publicKey,
             verification
