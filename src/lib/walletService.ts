@@ -283,9 +283,13 @@ class WalletService {
             if (!window.ethereum) return null;
 
             const provider = new ethers.BrowserProvider(window.ethereum);
-            const gasPrice = await provider.getGasPrice();
+            
+            // Use getFeeData() instead of getGasPrice() for ethers.js v6
+            const feeData = await provider.getFeeData();
+            const gasPrice = feeData.gasPrice;
+            
             const formattedGasPrice = `${Math.round(
-                Number(ethers.formatUnits(gasPrice, "gwei"))
+                Number(ethers.formatUnits(gasPrice || '0', "gwei"))
             )} Gwei`;
 
             // Get latest block number
