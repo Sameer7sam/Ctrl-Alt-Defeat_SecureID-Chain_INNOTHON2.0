@@ -1,8 +1,11 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { sendVerification } from '@/api/send-verification';
+import { verifySms } from '@/api/verify-sms';
 
 interface SmsVerificationProps {
   onVerificationComplete?: (phoneNumber: string) => void;
@@ -22,19 +25,7 @@ const SmsVerification: React.FC<SmsVerificationProps> = ({ onVerificationComplet
 
     setIsLoading(true);
     try {
-      const response = await fetch('/api/send-verification', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ phoneNumber }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
+      const result = await sendVerification(phoneNumber);
       
       if (result.success) {
         toast.success('OTP sent successfully');
@@ -58,19 +49,7 @@ const SmsVerification: React.FC<SmsVerificationProps> = ({ onVerificationComplet
 
     setIsLoading(true);
     try {
-      const response = await fetch('/api/verify-sms', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ phoneNumber, code: otp }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
+      const result = await verifySms(phoneNumber, otp);
       
       if (result.success) {
         toast.success('Phone number verified successfully');
@@ -137,4 +116,4 @@ const SmsVerification: React.FC<SmsVerificationProps> = ({ onVerificationComplet
   );
 };
 
-export default SmsVerification; 
+export default SmsVerification;

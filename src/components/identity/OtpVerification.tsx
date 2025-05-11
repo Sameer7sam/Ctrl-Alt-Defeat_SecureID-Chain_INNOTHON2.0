@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
@@ -20,12 +21,23 @@ const OtpVerification = ({ onVerificationComplete }: OtpVerificationProps) => {
     setIsVerified(true);
     toast.success('Phone number verified successfully!');
     
-    // Update verification in blockchain system
-    const verification = blockchainSystem.getVerification();
+    // Get current verification or create a new one if it doesn't exist
+    let verification = blockchainSystem.getVerification();
+    
+    if (!verification) {
+      // If there is no existing verification, create a minimal one with verified status
+      await blockchainSystem.verifyAadhaar('000000000000', 'Demo User', '1990-01-01', 'Other');
+      verification = blockchainSystem.getVerification();
+    }
+    
+    // Update verification in blockchain system with the phone number
     if (verification) {
       verification.phoneNumber = phoneNumber;
       verification.verified = true;
+      verification.verifiedAt = Date.now();
     }
+    
+    console.log("Updated verification:", verification);
     
     if (onVerificationComplete) {
       onVerificationComplete();
