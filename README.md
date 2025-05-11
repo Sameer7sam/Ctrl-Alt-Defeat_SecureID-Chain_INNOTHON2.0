@@ -1,7 +1,8 @@
 Identity Secure Chain
 A blockchain-based digital identity verification system. Think of it as your secure digital ID, built with Ethereum technology and Decentralized Identifiers (DIDs).
 
-Features
+Features:-
+
 🔐 Decentralized Identity (DID) with Ethereum keys (via ethers.js).
 
 🔒 Private keys encrypted with password (SHA-256 + salt) and stored locally.
@@ -18,7 +19,8 @@ Features
 
 🛡️ Transaction signing with private key validation.
 
-Planned Improvements
+Planned Improvements:-
+
 Real biometric verification (AI-based face matching + liveness).
 
 Aadhaar document scanning and real-time authenticity check.
@@ -30,6 +32,7 @@ AES-256 encryption and key rotation for better security.
 Mobile app with biometric authentication.
 
 Why SecureID-Chain?
+  
 ✅ You control your identity — not centralized servers.
 
 ✅ Blockchain-backed, tamper-proof verification.
@@ -39,6 +42,7 @@ Why SecureID-Chain?
 ✅ Interoperable with Ethereum DID standards.
 
 Contributors
+
 Sameer Jaiswal
 
 Nikhil Sharma
@@ -47,4 +51,6 @@ Lavina Fand
 
 Manav Mulchandani
 
+----------------------------------------------------------
+  
 SecureID-Chain — Own your identity, secure your future.
