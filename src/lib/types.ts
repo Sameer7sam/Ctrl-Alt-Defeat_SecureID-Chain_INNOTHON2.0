@@ -1,4 +1,3 @@
-
 export interface Wallet {
   publicKey: string;
   privateKey: string;
@@ -52,7 +51,6 @@ export interface IdentityVerification {
   verifiedAt?: number;
   photoUrl?: string;
   phoneNumber?: string;
-  address?: string; // Added missing address property
 }
 
 export interface WalletConnection {

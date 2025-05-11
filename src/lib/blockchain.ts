@@ -209,7 +209,7 @@ class BlockchainSystem {
                 aadhaarNumber: "",
                 fullName: "",
                 dateOfBirth: "",
-                gender: "",  // Added required gender field
+                address: "",
                 verified: false,
                 photoUrl,
             };
