@@ -1,3 +1,4 @@
+
 import { ethers } from "ethers";
 import { WalletConnection } from "./types";
 import { toast } from "sonner";
@@ -283,9 +284,10 @@ class WalletService {
             if (!window.ethereum) return null;
 
             const provider = new ethers.BrowserProvider(window.ethereum);
-            const gasPrice = await provider.getGasPrice();
+            // Use getFeeData() instead of getGasPrice()
+            const feeData = await provider.getFeeData();
             const formattedGasPrice = `${Math.round(
-                Number(ethers.formatUnits(gasPrice, "gwei"))
+                Number(ethers.formatUnits(feeData.gasPrice || 0, "gwei"))
             )} Gwei`;
 
             // Get latest block number
